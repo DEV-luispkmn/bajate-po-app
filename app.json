@@ -20,6 +20,22 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite a Bájate Po! acceder a la cámara para escanear el código QR del bando en la cancha."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite a Bájate Po! acceder a tu galería para cambiar tu foto de operador."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ]
   }
 }
