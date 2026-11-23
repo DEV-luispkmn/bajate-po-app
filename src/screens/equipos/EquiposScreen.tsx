@@ -9,16 +9,18 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
-  Alert,
   ScrollView,
   RefreshControl,
   Share,
+  Linking,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
 import {
   Equipo,
@@ -32,13 +34,32 @@ import {
   desintegrarEquipoApi,
   cambiarPostulacionesApi,
   asignarTLApi,
+  modificarMiEquipoApi,
+  PostulacionEquipo,
+  postularEquipoApi,
+  listarPostulacionesMiEquipoApi,
+  responderPostulacionApi,
+  obtenerMisPostulacionesApi,
+  cancelarPostulacionApi,
 } from '../../api/equipos.service';
+import { ModalNotificaciones } from '../../components/ModalNotificaciones';
+import { listarNotificacionesApi } from '../../api/notificaciones.service';
+import { ModalFichaEquipo } from './components/ModalFichaEquipo';
+import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
 
 export const EquiposScreen = () => {
   const { jugador, recargarPerfil } = useAuth();
+  const insets = useSafeAreaInsets();
+  const route = useRoute<any>();
 
   // Pestaña Principal (EXPLORAR vs MI EQUIPO)
   const [tabActual, setTabActual] = useState<'EXPLORAR' | 'MI_EQUIPO'>('EXPLORAR');
+
+  useEffect(() => {
+    if (route.params?.tab) {
+      setTabActual(route.params.tab);
+    }
+  }, [route.params?.tab]);
 
   // Estados de datos
   const [equipos, setEquipos] = useState<Equipo[]>([]);
@@ -46,8 +67,13 @@ export const EquiposScreen = () => {
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
 
+  // Mi Región del jugador
+  const miRegion = jugador?.region || 'Región Metropolitana';
+
   // Filtros de Exploración
-  const [regionFiltro, setRegionFiltro] = useState<string>('TODAS');
+  // 'MI_REGION' | 'PERSONALIZADA'
+  const [modoFiltro, setModoFiltro] = useState<'MI_REGION' | 'PERSONALIZADA'>('MI_REGION');
+  const [regionFiltro, setRegionFiltro] = useState<string>(miRegion);
   const [busqueda, setBusqueda] = useState<string>('');
   const [modalRegionVisible, setModalRegionVisible] = useState(false);
 
@@ -61,19 +87,130 @@ export const EquiposScreen = () => {
   const [crearNombre, setCrearNombre] = useState('');
   const [crearLema, setCrearLema] = useState('');
   const [crearDescripcion, setCrearDescripcion] = useState('');
-  const [crearRegion, setCrearRegion] = useState(jugador?.region || 'Región Metropolitana');
+  const [crearRegion, setCrearRegion] = useState(miRegion);
   const [crearCiudad, setCrearCiudad] = useState(jugador?.ciudad || '');
   const [crearLogoUrl, setCrearLogoUrl] = useState('');
   const [modalRegionCrearVisible, setModalRegionCrearVisible] = useState(false);
   const [guardandoEquipo, setGuardandoEquipo] = useState(false);
+  const [errorCrearModal, setErrorCrearModal] = useState<string | null>(null);
 
   // Modal Unirse por Código
   const [modalCodigoVisible, setModalCodigoVisible] = useState(false);
   const [codigoIngresado, setCodigoIngresado] = useState('');
   const [procesandoCodigo, setProcesandoCodigo] = useState(false);
+  const [errorCodigoModal, setErrorCodigoModal] = useState<string | null>(null);
 
   // Gestión TL (Team Leader)
   const [cambiandoPostulaciones, setCambiandoPostulaciones] = useState(false);
+  const [modalDesintegrarVisible, setModalDesintegrarVisible] = useState(false);
+  const [desintegrandoEquipo, setDesintegrandoEquipo] = useState(false);
+
+  // Modal Modificar Información del Equipo (TL / Fundador)
+  const [modalEditarEquipoVisible, setModalEditarEquipoVisible] = useState(false);
+  const [editNombre, setEditNombre] = useState('');
+  const [editLema, setEditLema] = useState('');
+  const [editDescripcion, setEditDescripcion] = useState('');
+  const [editRegion, setEditRegion] = useState(miRegion);
+  const [editCiudad, setEditCiudad] = useState('');
+  const [editLogoUrl, setEditLogoUrl] = useState('');
+  const [modalRegionEditarVisible, setModalRegionEditarVisible] = useState(false);
+  const [guardandoEdicionEquipo, setGuardandoEdicionEquipo] = useState(false);
+  const [errorEditarModal, setErrorEditarModal] = useState<string | null>(null);
+
+  // Estados de Postulaciones Tácticas
+  const [postulacionesPendientes, setPostulacionesPendientes] = useState<PostulacionEquipo[]>([]);
+  const [misPostulaciones, setMisPostulaciones] = useState<PostulacionEquipo[]>([]);
+  const [modalPostularVisible, setModalPostularVisible] = useState(false);
+  const [equipoParaPostular, setEquipoParaPostular] = useState<Equipo | null>(null);
+  const [postulacionContacto, setPostulacionContacto] = useState('');
+  const [postulacionMensaje, setPostulacionMensaje] = useState('');
+  const [enviandoPostulacion, setEnviandoPostulacion] = useState(false);
+  const [respondiendoPostulacionId, setRespondiendoPostulacionId] = useState<number | null>(null);
+  const [errorPostularModal, setErrorPostularModal] = useState<string | null>(null);
+
+  // Modal Táctico Unificado (Avisos y Confirmaciones)
+  const [modalTactico, setModalTactico] = useState<{
+    visible: boolean;
+    titulo: string;
+    mensaje: string;
+    tipo: 'primario' | 'peligro' | 'advertencia' | 'exito';
+    icono?: keyof typeof MaterialCommunityIcons.glyphMap;
+    textoConfirmar?: string;
+    textoCancelar?: string;
+    soloAceptar?: boolean;
+    cargando?: boolean;
+    onConfirmar?: () => void;
+    onCancelar?: () => void;
+  }>({
+    visible: false,
+    titulo: '',
+    mensaje: '',
+    tipo: 'primario',
+  });
+
+  const mostrarAvisoTactico = (
+    titulo: string,
+    mensaje: string,
+    tipo: 'primario' | 'peligro' | 'advertencia' | 'exito' = 'primario',
+    icono?: keyof typeof MaterialCommunityIcons.glyphMap,
+  ) => {
+    setModalTactico({
+      visible: true,
+      titulo,
+      mensaje,
+      tipo,
+      icono,
+      soloAceptar: true,
+      textoConfirmar: 'ENTENDIDO',
+      onConfirmar: () => setModalTactico((prev) => ({ ...prev, visible: false })),
+    });
+  };
+
+  const mostrarConfirmacionTactico = (
+    titulo: string,
+    mensaje: string,
+    onConfirmar: () => void,
+    opciones?: {
+      tipo?: 'primario' | 'peligro' | 'advertencia' | 'exito';
+      icono?: keyof typeof MaterialCommunityIcons.glyphMap;
+      textoConfirmar?: string;
+      textoCancelar?: string;
+      onCancelar?: () => void;
+    },
+  ) => {
+    setModalTactico({
+      visible: true,
+      titulo,
+      mensaje,
+      tipo: opciones?.tipo || 'primario',
+      icono: opciones?.icono,
+      textoConfirmar: opciones?.textoConfirmar || 'CONFIRMAR',
+      textoCancelar: opciones?.textoCancelar || 'CANCELAR',
+      soloAceptar: false,
+      onConfirmar,
+      onCancelar: opciones?.onCancelar || (() => setModalTactico((prev) => ({ ...prev, visible: false }))),
+    });
+  };
+
+  // Notificaciones
+  const [modalNotificacionesVisible, setModalNotificacionesVisible] = useState(false);
+  const [conteoNoLeidas, setConteoNoLeidas] = useState(0);
+  const { suscribirNotificaciones } = useSocket();
+
+  useEffect(() => {
+    if (!suscribirNotificaciones) return;
+    const desuscribir = suscribirNotificaciones(() => {
+      setConteoNoLeidas((prev) => prev + 1);
+      cargarDatos();
+    });
+    return desuscribir;
+  }, [suscribirNotificaciones]);
+
+  // Modal Rechazar Postulación con Motivo
+  const [modalRechazoVisible, setModalRechazoVisible] = useState(false);
+  const [postulacionRechazo, setPostulacionRechazo] = useState<{ id: number; alias?: string } | null>(null);
+  const [motivoRechazoTexto, setMotivoRechazoTexto] = useState('');
+  const [enviandoRechazo, setEnviandoRechazo] = useState(false);
 
   useEffect(() => {
     if (jugador?.region) {
@@ -81,18 +218,56 @@ export const EquiposScreen = () => {
     }
   }, [jugador?.region]);
 
+  const seleccionarModoMiRegion = () => {
+    setModoFiltro('MI_REGION');
+    setRegionFiltro(miRegion);
+  };
+
+  const seleccionarRegionEspecifica = (reg: string) => {
+    if (reg === miRegion) {
+      setModoFiltro('MI_REGION');
+      setRegionFiltro(miRegion);
+    } else {
+      setModoFiltro('PERSONALIZADA');
+      setRegionFiltro(reg);
+    }
+    setModalRegionVisible(false);
+  };
+
   const cargarDatos = async () => {
     try {
-      const [resEquipos, resMiEquipo] = await Promise.all([
+      const regionParam = modoFiltro === 'MI_REGION' ? miRegion : regionFiltro;
+
+      const [resEquipos, resMiEquipo, resMisPostulaciones, resNotif] = await Promise.all([
         listarEquiposApi({
-          region: regionFiltro === 'TODAS' ? undefined : regionFiltro,
+          region: regionParam,
           search: busqueda.trim() || undefined,
         }),
         obtenerMiEquipoApi().catch(() => null),
+        obtenerMisPostulacionesApi().catch((err) => {
+          console.warn('Error al obtener mis postulaciones:', err);
+          return [];
+        }),
+        listarNotificacionesApi().catch(() => ({ notificaciones: [], noLeidas: 0 })),
       ]);
 
       setEquipos(resEquipos);
       setMiEquipo(resMiEquipo);
+      setMisPostulaciones(resMisPostulaciones);
+      setConteoNoLeidas(resNotif.noLeidas);
+
+      const esTlOGestor =
+        resMiEquipo &&
+        (resMiEquipo.tlId === jugador?.id ||
+          (!resMiEquipo.tlId && resMiEquipo.fundadorId === jugador?.id) ||
+          resMiEquipo.capitanId === jugador?.id);
+
+      if (esTlOGestor) {
+        const postulacionesTl = await listarPostulacionesMiEquipoApi('PENDIENTE').catch(() => []);
+        setPostulacionesPendientes(postulacionesTl);
+      } else {
+        setPostulacionesPendientes([]);
+      }
     } catch (error: any) {
       console.warn('Error al cargar equipos:', error);
     } finally {
@@ -104,7 +279,7 @@ export const EquiposScreen = () => {
   useFocusEffect(
     useCallback(() => {
       cargarDatos();
-    }, [regionFiltro, busqueda, jugador?.region]),
+    }, [modoFiltro, regionFiltro, busqueda, jugador?.region]),
   );
 
   const onRefresh = () => {
@@ -117,7 +292,12 @@ export const EquiposScreen = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso Requerido', 'Se necesita acceso a la galería para subir el logo de tu escuadra.');
+        mostrarAvisoTactico(
+          'PERMISO REQUERIDO',
+          'Se necesita acceso a la galería para subir el logo de tu equipo.',
+          'advertencia',
+          'image-off',
+        );
         return;
       }
 
@@ -138,16 +318,17 @@ export const EquiposScreen = () => {
         setCrearLogoUrl(base64Uri);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo cargar la imagen');
+      mostrarAvisoTactico('ERROR DE IMAGEN', error.message || 'No se pudo cargar la imagen.', 'peligro', 'alert-circle-outline');
     }
   };
 
   // Crear Equipo Oficial
   const handleCrearEquipo = async () => {
     if (!crearNombre.trim()) {
-      Alert.alert('Atención', 'El nombre de la escuadra es obligatorio.');
+      setErrorCrearModal('El nombre del equipo es obligatorio.');
       return;
     }
+    setErrorCrearModal(null);
 
     try {
       setGuardandoEquipo(true);
@@ -165,10 +346,13 @@ export const EquiposScreen = () => {
       setCrearLema('');
       setCrearDescripcion('');
       setCrearLogoUrl('');
+      setErrorCrearModal(null);
 
-      Alert.alert(
-        '🎖️ ¡ESCUADRA FUNDADA!',
-        `Has creado exitosamente "${nuevo.nombre}". Eres el Fundador y Team Leader (TL) inicial de la escuadra.`,
+      mostrarAvisoTactico(
+        '¡EQUIPO FUNDADO!',
+        `Has creado exitosamente "${nuevo.nombre}". Eres el Fundador y Team Leader (TL) inicial del equipo.`,
+        'exito',
+        'shield-check',
       );
 
       setTabActual('MI_EQUIPO');
@@ -177,7 +361,7 @@ export const EquiposScreen = () => {
         await recargarPerfil();
       }
     } catch (error: any) {
-      Alert.alert('Error al fundar equipo', error.message || 'Ocurrió un error');
+      setErrorCrearModal(error.message || 'Ocurrió un error al fundar el equipo.');
     } finally {
       setGuardandoEquipo(false);
     }
@@ -185,57 +369,243 @@ export const EquiposScreen = () => {
 
   // Unirse a un Equipo
   const handleUnirmeEquipo = async (equipo: Equipo) => {
-    Alert.alert(
-      '🛡️ ¿ALISTARTE A ESTA ESCUADRA?',
+    mostrarConfirmacionTactico(
+      '¿ALISTARTE A ESTE EQUIPO?',
       `¿Deseas sumarte formalmente a las filas de "${equipo.nombre}"?${
         miEquipo ? `\n\n(Dejarás de pertenecer a "${miEquipo.nombre}")` : ''
       }`,
-      [
-        { text: 'CANCELAR', style: 'cancel' },
-        {
-          text: 'CONFIRMAR Y ALISTARME',
-          onPress: async () => {
-            try {
-              setUniendose(true);
-              const actualizado = await unirseEquipoApi(equipo.id);
-              setModalDetalleVisible(false);
-              Alert.alert('¡Bienvenido camarada!', `Ahora formas parte de "${actualizado.nombre}".`);
-              setTabActual('MI_EQUIPO');
-              await cargarDatos();
-              if (recargarPerfil) {
-                await recargarPerfil();
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'No se pudo completar el alistamiento');
-            } finally {
-              setUniendose(false);
-            }
-          },
+      async () => {
+        try {
+          setModalTactico((prev) => ({ ...prev, visible: false }));
+          setUniendose(true);
+          const actualizado = await unirseEquipoApi(equipo.id);
+          setModalDetalleVisible(false);
+          mostrarAvisoTactico('¡BIENVENIDO CAMARADA!', `Ahora formas parte de "${actualizado.nombre}".`, 'exito', 'shield-account');
+          setTabActual('MI_EQUIPO');
+          await cargarDatos();
+          if (recargarPerfil) {
+            await recargarPerfil();
+          }
+        } catch (error: any) {
+          mostrarAvisoTactico('ERROR DE ALISTAMIENTO', error.message || 'No se pudo completar el alistamiento.', 'peligro', 'alert-circle-outline');
+        } finally {
+          setUniendose(false);
+        }
+      },
+      {
+        tipo: 'primario',
+        icono: 'shield-account',
+        textoConfirmar: 'CONFIRMAR Y ALISTARME',
+      },
+    );
+  };
+
+  // Proceso de Postulación a un Equipo
+  const handleAbrirModalPostulacion = (equipo: Equipo) => {
+    if (miEquipo) {
+      mostrarConfirmacionTactico(
+        'AVISO DE TRASPASO',
+        `Actualmente formas parte de "${miEquipo.nombre}". Si el Team Leader de "${equipo.nombre}" aprueba tu postulación, serás transferido a este nuevo equipo.\n\n¿Deseas continuar?`,
+        () => {
+          setModalTactico((prev) => ({ ...prev, visible: false }));
+          setEquipoParaPostular(equipo);
+          setPostulacionContacto('');
+          setPostulacionMensaje('');
+          setErrorPostularModal(null);
+          setModalPostularVisible(true);
         },
-      ],
+        {
+          tipo: 'advertencia',
+          icono: 'swap-horizontal',
+          textoConfirmar: 'CONTINUAR Y POSTULAR',
+          textoCancelar: 'VOLVER',
+        },
+      );
+      return;
+    }
+
+    setEquipoParaPostular(equipo);
+    setPostulacionContacto('');
+    setPostulacionMensaje('');
+    setErrorPostularModal(null);
+    setModalPostularVisible(true);
+  };
+
+  const handleEnviarPostulacion = async () => {
+    if (!equipoParaPostular) return;
+    if (!postulacionContacto.trim()) {
+      setErrorPostularModal('Ingresa tu número de WhatsApp o teléfono para que el Team Leader pueda contactarte.');
+      return;
+    }
+    setErrorPostularModal(null);
+
+    setEnviandoPostulacion(true);
+    try {
+      const nuevaPost = await postularEquipoApi(equipoParaPostular.id, {
+        contacto: postulacionContacto.trim(),
+        mensaje: postulacionMensaje.trim() || undefined,
+      });
+
+      // Actualizar estado local de inmediato
+      setMisPostulaciones((prev) => [
+        nuevaPost,
+        ...prev.filter((p) => Number(p.equipoId) !== Number(equipoParaPostular.id)),
+      ]);
+
+      setModalPostularVisible(false);
+      setErrorPostularModal(null);
+      mostrarAvisoTactico(
+        '¡POSTULACIÓN ENVIADA!',
+        `Tu solicitud fue remitida con éxito al Team Leader (TL) de "${equipoParaPostular.nombre}".\n\nEl TL revisará tus datos y te contactará por WhatsApp para coordinar tu ingreso o prueba en terreno.`,
+        'exito',
+        'email-check-outline',
+      );
+      await cargarDatos();
+    } catch (error: any) {
+      setErrorPostularModal(error.message || 'No se pudo enviar la postulación.');
+    } finally {
+      setEnviandoPostulacion(false);
+    }
+  };
+
+  const handleCancelarMiPostulacion = (postulacionId: number) => {
+    mostrarConfirmacionTactico(
+      '¿RETIRAR POSTULACIÓN?',
+      '¿Deseas cancelar tu postulación enviada a este equipo?',
+      async () => {
+        try {
+          setModalTactico((prev) => ({ ...prev, visible: false }));
+          await cancelarPostulacionApi(postulacionId);
+          setMisPostulaciones((prev) => prev.filter((p) => p.id !== postulacionId));
+          mostrarAvisoTactico('POSTULACIÓN RETIRADA', 'Has cancelado tu solicitud correctamente.', 'advertencia', 'cancel');
+          await cargarDatos();
+        } catch (error: any) {
+          mostrarAvisoTactico('ERROR', error.message || 'No se pudo retirar la postulación.', 'peligro', 'alert-circle-outline');
+        }
+      },
+      {
+        tipo: 'advertencia',
+        icono: 'cancel',
+        textoConfirmar: 'SÍ, RETIRAR',
+        textoCancelar: 'NO',
+      },
+    );
+  };
+
+  const handleAbrirWhatsApp = (contacto?: string | null, alias?: string) => {
+    if (!contacto) {
+      mostrarAvisoTactico('SIN CONTACTO', 'El postulante no proporcionó número de contacto.', 'advertencia', 'phone-off');
+      return;
+    }
+    const soloNumeros = contacto.replace(/[^0-9]/g, '');
+    let numero = soloNumeros;
+    if (numero.length === 9 && numero.startsWith('9')) {
+      numero = '56' + numero;
+    }
+    const mensaje = encodeURIComponent(
+      `Hola ${alias || 'camarada'}, te contacto desde la app Bájate Po! respecto a tu postulación a nuestro equipo "${miEquipo?.nombre || 'de airsoft'}".`,
+    );
+    const url = `https://wa.me/${numero}?text=${mensaje}`;
+    Linking.openURL(url).catch(() => {
+      mostrarAvisoTactico(
+        'ATENCIÓN',
+        `No se pudo abrir WhatsApp automáticamente. Puedes contactar directamente al número: ${contacto}`,
+        'advertencia',
+        'whatsapp',
+      );
+    });
+  };
+
+  const handleAbrirRechazo = (postulacionId: number, alias?: string) => {
+    setPostulacionRechazo({ id: postulacionId, alias });
+    setMotivoRechazoTexto('');
+    setModalRechazoVisible(true);
+  };
+
+  const handleConfirmarRechazo = async () => {
+    if (!postulacionRechazo) return;
+    try {
+      setEnviandoRechazo(true);
+      setRespondiendoPostulacionId(postulacionRechazo.id);
+      await responderPostulacionApi(
+        postulacionRechazo.id,
+        'RECHAZAR',
+        motivoRechazoTexto.trim() || undefined,
+      );
+      setModalRechazoVisible(false);
+      setPostulacionRechazo(null);
+      setMotivoRechazoTexto('');
+      mostrarAvisoTactico('POSTULACIÓN DECLINADA', 'Se ha notificado al operador indicando el motivo de rechazo.', 'advertencia', 'account-cancel');
+      await cargarDatos();
+    } catch (error: any) {
+      mostrarAvisoTactico('ERROR', error.message || 'No se pudo rechazar la postulación.', 'peligro', 'alert-circle-outline');
+    } finally {
+      setEnviandoRechazo(false);
+      setRespondiendoPostulacionId(null);
+    }
+  };
+
+  const handleResponderPostulacion = (
+    postulacionId: number,
+    decision: 'ACEPTAR' | 'RECHAZAR',
+    alias?: string,
+  ) => {
+    if (decision === 'RECHAZAR') {
+      handleAbrirRechazo(postulacionId, alias);
+      return;
+    }
+
+    mostrarConfirmacionTactico(
+      '¿INCORPORAR AL EQUIPO?',
+      `¿Confirmas que deseas reclutar oficialmente a "${alias || 'este operador'}" en las filas de "${miEquipo?.nombre}"?`,
+      async () => {
+        try {
+          setModalTactico((prev) => ({ ...prev, visible: false }));
+          setRespondiendoPostulacionId(postulacionId);
+          await responderPostulacionApi(postulacionId, 'ACEPTAR');
+          mostrarAvisoTactico(
+            'OPERADOR RECLUTADO',
+            `"${alias || 'El operador'}" ahora forma parte activa de tu equipo.`,
+            'exito',
+            'shield-account',
+          );
+          await cargarDatos();
+        } catch (error: any) {
+          mostrarAvisoTactico('ERROR', error.message || 'No se pudo procesar la postulación.', 'peligro', 'alert-circle-outline');
+        } finally {
+          setRespondiendoPostulacionId(null);
+        }
+      },
+      {
+        tipo: 'exito',
+        icono: 'account-plus',
+        textoConfirmar: 'SÍ, INCORPORAR AL EQUIPO',
+      },
     );
   };
 
   // Unirse por Código
   const handleUnirsePorCodigo = async () => {
     if (!codigoIngresado.trim()) {
-      Alert.alert('Atención', 'Ingresa el código táctico de 6 caracteres.');
+      setErrorCodigoModal('Ingresa el código táctico de 6 caracteres.');
       return;
     }
 
     try {
       setProcesandoCodigo(true);
+      setErrorCodigoModal(null);
       const equipo = await unirsePorCodigoApi(codigoIngresado.trim().toUpperCase());
       setModalCodigoVisible(false);
       setCodigoIngresado('');
-      Alert.alert('¡Alistamiento Exitoso!', `Te has sumado a la escuadra "${equipo.nombre}".`);
+      setErrorCodigoModal(null);
+      mostrarAvisoTactico('ALISTAMIENTO EXITOSO', `Te has sumado al equipo "${equipo.nombre}".`, 'exito', 'shield-check');
       setTabActual('MI_EQUIPO');
       await cargarDatos();
       if (recargarPerfil) {
         await recargarPerfil();
       }
     } catch (error: any) {
-      Alert.alert('Error de Código', error.message || 'Código inválido o equipo no encontrado.');
+      setErrorCodigoModal(error.message || 'Código inválido o equipo no encontrado.');
     } finally {
       setProcesandoCodigo(false);
     }
@@ -245,70 +615,56 @@ export const EquiposScreen = () => {
   const handleSalirEquipo = () => {
     if (!miEquipo) return;
 
-    Alert.alert(
-      '⚠️ ¿DESVINCULARTE DE TU ESCUADRA?',
+    mostrarConfirmacionTactico(
+      '¿DESVINCULARTE DE TU EQUIPO?',
       `¿Estás seguro de que deseas salir de "${miEquipo.nombre}"?\nQuedarás registrado como operador libre (Lobo Solitario).`,
-      [
-        { text: 'CANCELAR', style: 'cancel' },
-        {
-          text: 'SÍ, DESVINCULARME',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setCargando(true);
-              await salirEquipoApi();
-              Alert.alert('Desvinculación Completa', 'Has abandonado la escuadra.');
-              setMiEquipo(null);
-              await cargarDatos();
-              if (recargarPerfil) {
-                await recargarPerfil();
-              }
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'No se pudo salir del equipo');
-            } finally {
-              setCargando(false);
-            }
-          },
-        },
-      ],
+      async () => {
+        try {
+          setModalTactico((prev) => ({ ...prev, visible: false }));
+          setCargando(true);
+          await salirEquipoApi();
+          mostrarAvisoTactico('DESVINCULACIÓN COMPLETA', 'Has abandonado el equipo.', 'advertencia', 'logout-variant');
+          setMiEquipo(null);
+          await cargarDatos();
+          if (recargarPerfil) {
+            await recargarPerfil();
+          }
+        } catch (error: any) {
+          mostrarAvisoTactico('ERROR', error.message || 'No se pudo salir del equipo.', 'peligro', 'alert-circle-outline');
+        } finally {
+          setCargando(false);
+        }
+      },
+      {
+        tipo: 'peligro',
+        icono: 'logout-variant',
+        textoConfirmar: 'SÍ, DESVINCULARME',
+      },
     );
   };
 
   // Desintegrar el Equipo (Exclusivo para el Team Leader / Fundador)
   const handleDesintegrarEquipo = () => {
     if (!miEquipo) return;
-    const esUnico = (miEquipo.totalMiembros || 0) <= 1;
+    setModalDesintegrarVisible(true);
+  };
 
-    Alert.alert(
-      '💥 ¿DESINTEGRAR ESCUADRA?',
-      esUnico
-        ? `Eres el único operador y Team Leader de "${miEquipo.nombre}".\n\nAl desintegrar el equipo, este se eliminará definitivamente del sistema y del radar táctico.\n\n¿Estás seguro de que deseas desintegrar la escuadra?`
-        : `Eres el Team Leader (TL) de "${miEquipo.nombre}".\n\n⚠️ ¡ESTA ACCIÓN ES DEFINITIVA!\nDisolverás la escuadra por completo, desvinculando a los ${miEquipo.totalMiembros} operadores activos y eliminando su registro de forma permanente.\n\n(Si deseas salirte sin disolver el equipo, primero transfiere el mando de TL a otro operador usando el botón "NOMBRAR TL ⭐").\n\n¿Confirmas la desintegración?`,
-      [
-        { text: 'CANCELAR', style: 'cancel' },
-        {
-          text: 'SÍ, DESINTEGRAR ESCUADRA',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setCargando(true);
-              const res = await desintegrarEquipoApi();
-              Alert.alert('💥 Escuadra Desintegrada', res.mensaje || 'La escuadra ha sido desintegrada.');
-              setMiEquipo(null);
-              setTabActual('EXPLORAR');
-              await cargarDatos();
-              if (recargarPerfil) {
-                await recargarPerfil();
-              }
-            } catch (error: any) {
-              Alert.alert('Error al desintegrar', error.message || 'No se pudo desintegrar la escuadra');
-            } finally {
-              setCargando(false);
-            }
-          },
-        },
-      ],
-    );
+  const handleConfirmarDesintegracion = async () => {
+    try {
+      setDesintegrandoEquipo(true);
+      await desintegrarEquipoApi();
+      setModalDesintegrarVisible(false);
+      setMiEquipo(null);
+      setTabActual('EXPLORAR');
+      await cargarDatos();
+      if (recargarPerfil) {
+        await recargarPerfil();
+      }
+    } catch (error: any) {
+      mostrarAvisoTactico('ERROR AL DESINTEGRAR', error.message || 'No se pudo desintegrar el equipo.', 'peligro', 'bomb');
+    } finally {
+      setDesintegrandoEquipo(false);
+    }
   };
 
   // Control TL: Abrir o Cerrar Postulaciones
@@ -318,15 +674,17 @@ export const EquiposScreen = () => {
     try {
       setCambiandoPostulaciones(true);
       await cambiarPostulacionesApi(nuevoEstado);
-      Alert.alert(
-        'Postulaciones Actualizadas',
+      mostrarAvisoTactico(
+        'POSTULACIONES ACTUALIZADAS',
         nuevoEstado
           ? 'Las postulaciones ahora están ABIERTAS. Cualquier operador podrá solicitar unirse desde Explorar.'
           : 'Las postulaciones ahora están CERRADAS. Los nuevos operadores solo podrán ingresar con tu código de reclutamiento oficial.',
+        'primario',
+        nuevoEstado ? 'lock-open-outline' : 'lock-outline',
       );
       cargarDatos();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo cambiar el estado de postulaciones');
+      mostrarAvisoTactico('ERROR', error.message || 'No se pudo cambiar el estado de postulaciones.', 'peligro', 'alert-circle-outline');
     } finally {
       setCambiandoPostulaciones(false);
     }
@@ -335,24 +693,24 @@ export const EquiposScreen = () => {
   // Control TL: Nombrar a otro camarada como Team Leader (TL)
   const handleNombrarTl = (miembro: MiembroEquipo) => {
     if (!miEquipo) return;
-    Alert.alert(
-      '⭐ ¿NOMBRAR COMO TEAM LEADER (TL)?',
+    mostrarConfirmacionTactico(
+      '¿NOMBRAR COMO TEAM LEADER (TL)?',
       `¿Deseas ceder el mando de Team Leader a "${miembro.alias}"?\n\nTendrá el rango más alto para la gestión del equipo y el control de postulaciones.`,
-      [
-        { text: 'CANCELAR', style: 'cancel' },
-        {
-          text: 'SÍ, NOMBRAR COMO TL',
-          onPress: async () => {
-            try {
-              await asignarTLApi(miembro.id);
-              Alert.alert('¡Nuevo TL Designado!', `${miembro.alias} es ahora el Team Leader oficial de la escuadra.`);
-              cargarDatos();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'No se pudo designar al nuevo TL');
-            }
-          },
-        },
-      ],
+      async () => {
+        try {
+          setModalTactico((prev) => ({ ...prev, visible: false }));
+          await asignarTLApi(miembro.id);
+          mostrarAvisoTactico('¡NUEVO TL DESIGNADO!', `${miembro.alias} es ahora el Team Leader oficial del equipo.`, 'exito', 'crown');
+          cargarDatos();
+        } catch (error: any) {
+          mostrarAvisoTactico('ERROR', error.message || 'No se pudo designar al nuevo TL.', 'peligro', 'alert-circle-outline');
+        }
+      },
+      {
+        tipo: 'advertencia',
+        icono: 'crown-outline',
+        textoConfirmar: 'SÍ, NOMBRAR COMO TL',
+      },
     );
   };
 
@@ -361,15 +719,82 @@ export const EquiposScreen = () => {
     if (!miEquipo?.codigoAcceso) return;
     try {
       await Share.share({
-        message: `🇨🇱 *BÁJATE PO! AIRSOFT CHILE* 🇨🇱\n\n🛡️ *Únete a mi escuadra táctica:* *${miEquipo.nombre}*\n📍 *Región:* ${miEquipo.region || 'Chile'}\n🔑 *Código de reclutamiento:* *${miEquipo.codigoAcceso}*\n\nIngresa este código en la app Bájate Po! para sumarte a nuestras filas.`,
+        message: `*BÁJATE PO! AIRSOFT CHILE*\n\n*Únete a mi equipo táctico:* *${miEquipo.nombre}*\n*Región:* ${miEquipo.region || 'Chile'}\n*Código de reclutamiento:* *${miEquipo.codigoAcceso}*\n\nIngresa este código en la app Bájate Po! para sumarte a nuestras filas.`,
         title: `Reclutamiento: ${miEquipo.nombre}`,
       });
     } catch {}
   };
 
+  // Modificar Información del Equipo (TL / Fundador)
+  const handleAbrirModalEditarEquipo = () => {
+    if (!miEquipo) return;
+    setEditNombre(miEquipo.nombre || '');
+    setEditLema(miEquipo.lema || '');
+    setEditDescripcion(miEquipo.descripcion || '');
+    setEditRegion(miEquipo.region || miRegion);
+    setEditCiudad(miEquipo.ciudad || '');
+    setEditLogoUrl(miEquipo.logoUrl || '');
+    setErrorEditarModal(null);
+    setModalEditarEquipoVisible(true);
+  };
+
+  const handleSeleccionarLogoEditarGaleria = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        mostrarAvisoTactico('PERMISO DENEGADO', 'Se requiere acceso a tu galería de fotos.', 'advertencia', 'image-off');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setEditLogoUrl(uri);
+      }
+    } catch (error: any) {
+      mostrarAvisoTactico('ERROR DE IMAGEN', 'No se pudo seleccionar la imagen: ' + error.message, 'peligro', 'alert-circle-outline');
+    }
+  };
+
+  const handleGuardarEdicionEquipo = async () => {
+    if (!editNombre.trim()) {
+      setErrorEditarModal('El nombre del equipo no puede estar vacío.');
+      return;
+    }
+    setErrorEditarModal(null);
+    setGuardandoEdicionEquipo(true);
+    try {
+      await modificarMiEquipoApi({
+        nombre: editNombre.trim(),
+        lema: editLema.trim() || undefined,
+        descripcion: editDescripcion.trim() || undefined,
+        region: editRegion,
+        ciudad: editCiudad.trim() || undefined,
+        logoUrl: editLogoUrl || undefined,
+      });
+      setModalEditarEquipoVisible(false);
+      setErrorEditarModal(null);
+      mostrarAvisoTactico('ÉXITO', 'Los datos del equipo han sido actualizados correctamente.', 'exito', 'check-decagram');
+      await cargarDatos();
+    } catch (error: any) {
+      setErrorEditarModal(error.message || 'No se pudo actualizar el equipo.');
+    } finally {
+      setGuardandoEdicionEquipo(false);
+    }
+  };
+
   // Render Tarjeta de Equipo en la Lista
   const renderItemEquipo = ({ item }: { item: Equipo }) => {
     const esMiEquipo = miEquipo?.id === item.id;
+    const miPostulacionItem = misPostulaciones.find(
+      (p) => Number(p.equipoId) === Number(item.id) && p.estado === 'PENDIENTE',
+    );
 
     return (
       <View style={[styles.equipoCard, esMiEquipo && styles.equipoCardPropio]}>
@@ -389,7 +814,7 @@ export const EquiposScreen = () => {
               </Text>
               {esMiEquipo && (
                 <View style={styles.badgeMiEquipoMini}>
-                  <Text style={styles.txtMiEquipoMini}>TU ESCUADRA</Text>
+                  <Text style={styles.txtMiEquipoMini}>TU EQUIPO</Text>
                 </View>
               )}
             </View>
@@ -408,18 +833,29 @@ export const EquiposScreen = () => {
               </Text>
             </View>
 
-            {/* Badge de Postulaciones Abiertas / Cerradas */}
-            <View style={styles.badgePostulacionesRow}>
-              {item.postulacionesAbiertas ? (
-                <View style={styles.badgePostulacionesAbiertas}>
-                  <Text style={styles.txtPostulacionesAbiertas}>🟢 POSTULACIONES ABIERTAS</Text>
+            {/* Badge de Postulación Pendiente o Postulaciones Abiertas / Cerradas */}
+            {miPostulacionItem ? (
+              <View style={styles.badgePostulacionRow}>
+                <View style={styles.badgePostulacionPendienteCardList}>
+                  <MaterialCommunityIcons name="clock-outline" size={12} color={colors.warning} style={{ marginRight: 4 }} />
+                  <Text style={styles.txtBadgePostulacionPendienteList}>POSTULACIÓN EN REVISIÓN</Text>
                 </View>
-              ) : (
-                <View style={styles.badgePostulacionesCerradas}>
-                  <Text style={styles.txtPostulacionesCerradas}>🔒 POSTULACIONES CERRADAS</Text>
-                </View>
-              )}
-            </View>
+              </View>
+            ) : (
+              <View style={styles.badgePostulacionesRow}>
+                {item.postulacionesAbiertas ? (
+                  <View style={[styles.badgePostulacionesAbiertas, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <MaterialCommunityIcons name="circle" size={8} color="#10B981" style={{ marginRight: 5 }} />
+                    <Text style={styles.txtPostulacionesAbiertas}>POSTULACIONES ABIERTAS</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.badgePostulacionesCerradas, { flexDirection: 'row', alignItems: 'center' }]}>
+                    <MaterialCommunityIcons name="lock" size={10} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                    <Text style={styles.txtPostulacionesCerradas}>POSTULACIONES CERRADAS</Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
         </View>
 
@@ -432,7 +868,7 @@ export const EquiposScreen = () => {
         <View style={styles.equipoCardFooter}>
           <View style={styles.equipoConteoBox}>
             <MaterialCommunityIcons name="account-multiple" size={15} color={colors.primary} style={{ marginRight: 4 }} />
-            <Text style={styles.equipoConteoTexto}>
+            <Text style={[styles.equipoConteoTexto, { fontVariant: ['tabular-nums'] }]}>
               {item.totalMiembros} {item.totalMiembros === 1 ? 'Operador' : 'Operadores'}
             </Text>
           </View>
@@ -461,13 +897,33 @@ export const EquiposScreen = () => {
   return (
     <View style={styles.container}>
       {/* Cabecera Superior Táctica */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} style={{ marginRight: 8 }} />
-          <Text style={styles.headerTitle}>ESCUADRAS & EQUIPOS</Text>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top + 16, 58) }]}>
+        <View style={styles.headerTopRowConCampana}>
+          <View style={styles.headerTitleRow}>
+            <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} style={{ marginRight: 8 }} />
+            <Text style={styles.headerTitle}>EQUIPOS & ESCUADRONES</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.btnCampanaHeader}
+            onPress={() => setModalNotificacionesVisible(true)}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name={conteoNoLeidas > 0 ? 'bell-badge' : 'bell-outline'}
+              size={22}
+              color={conteoNoLeidas > 0 ? colors.primary : colors.textSecondary}
+            />
+            {conteoNoLeidas > 0 && (
+              <View style={styles.badgeCampanaContador}>
+                <Text style={styles.txtBadgeCampanaContador}>
+                  {conteoNoLeidas > 9 ? '9+' : conteoNoLeidas}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
         <Text style={styles.headerSubtitle}>
-          Revisa las escuadras de tu región o del país, o gestiona las filas de tu propio equipo.
+          Revisa los equipos de tu región o del país, o gestiona las filas de tu propio escuadrón.
         </Text>
       </View>
 
@@ -501,30 +957,112 @@ export const EquiposScreen = () => {
             style={{ marginRight: 6 }}
           />
           <Text style={[styles.segmentTxt, tabActual === 'MI_EQUIPO' && styles.segmentTxtActivo]}>
-            MI EQUIPO {miEquipo ? '✓' : ''}
+            MI EQUIPO
           </Text>
+          {miEquipo && (
+            <MaterialCommunityIcons
+              name="check-circle"
+              size={12}
+              color={tabActual === 'MI_EQUIPO' ? '#fff' : colors.success}
+              style={{ marginLeft: 4 }}
+            />
+          )}
         </TouchableOpacity>
       </View>
 
       {/* CONTENIDO SEGÚN PESTAÑA */}
       {tabActual === 'EXPLORAR' ? (
         <View style={{ flex: 1 }}>
-          {/* Barra de Filtros: Región y Buscador */}
-          <View style={styles.filtrosBar}>
-            {/* Selector de Región */}
-            <TouchableOpacity
-              style={styles.selectorRegionBtn}
-              onPress={() => setModalRegionVisible(true)}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="map-marker-radius" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.txtRegionSeleccionada} numberOfLines={1}>
-                {regionFiltro === 'TODAS' ? '🇨🇱 Todo Chile (Todas las regiones)' : regionFiltro}
-              </Text>
-              <MaterialCommunityIcons name="menu-down" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
+          {/* Barra de Filtros de Región: Solo Mi Región y Otras Regiones */}
+          <View style={styles.filtrosBarChips}>
+            <View style={styles.filtrosRowChips}>
+              {/* 1. Mi Región (Prioritaria por defecto) */}
+              <TouchableOpacity
+                style={[styles.filtroChipDos, modoFiltro === 'MI_REGION' && styles.filtroChipActivo]}
+                onPress={seleccionarModoMiRegion}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name="crosshairs-gps"
+                  size={14}
+                  color={modoFiltro === 'MI_REGION' ? '#fff' : colors.textSecondary}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[styles.filtroChipTxt, modoFiltro === 'MI_REGION' && styles.filtroChipTxtActivo]}
+                  numberOfLines={1}
+                >
+                  MI REGIÓN
+                </Text>
+              </TouchableOpacity>
 
-            {/* Input de Búsqueda */}
+              {/* 2. Otras Regiones */}
+              <TouchableOpacity
+                style={[
+                  styles.filtroChipDos,
+                  modoFiltro === 'PERSONALIZADA' && styles.filtroChipActivo,
+                ]}
+                onPress={() => setModalRegionVisible(true)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons
+                  name="map-search-outline"
+                  size={14}
+                  color={modoFiltro === 'PERSONALIZADA' ? '#fff' : colors.textSecondary}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.filtroChipTxt,
+                    modoFiltro === 'PERSONALIZADA' && styles.filtroChipTxtActivo,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {modoFiltro === 'PERSONALIZADA'
+                    ? regionFiltro.replace('Región ', '')
+                    : 'OTRAS REGIONES'}
+                </Text>
+                <MaterialCommunityIcons
+                  name="menu-down"
+                  size={16}
+                  color={modoFiltro === 'PERSONALIZADA' ? '#fff' : colors.textSecondary}
+                  style={{ marginLeft: 2 }}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Banner si hay filtro personalizado activo o región actual */}
+          {modoFiltro === 'PERSONALIZADA' ? (
+            <View style={styles.filtroActivoBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 4 }}>
+                <MaterialCommunityIcons name="map-marker" size={13} color={colors.primary} />
+                <Text style={styles.filtroActivoTxt} numberOfLines={1}>
+                  Región explorada: {regionFiltro}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={seleccionarModoMiRegion}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialCommunityIcons name="undo-variant" size={13} color={colors.textSecondary} />
+                <Text style={styles.limpiarFiltroTxt}>VOLVER A MI REGIÓN</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.filtroActivoBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 4 }}>
+                <MaterialCommunityIcons name="crosshairs-gps" size={13} color={colors.primary} />
+                <Text style={styles.filtroActivoTxt} numberOfLines={1}>
+                  Escuadrones en tu zona: {miRegion}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Buscador de Equipos */}
+          <View style={styles.buscadorBox}>
             <View style={styles.inputSearchBox}>
               <MaterialCommunityIcons name="magnify" size={18} color={colors.textMuted} style={{ marginRight: 6 }} />
               <TextInput
@@ -535,7 +1073,11 @@ export const EquiposScreen = () => {
                 onChangeText={setBusqueda}
               />
               {busqueda.length > 0 && (
-                <TouchableOpacity onPress={() => setBusqueda('')}>
+                <TouchableOpacity
+                  onPress={() => setBusqueda('')}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  activeOpacity={0.7}
+                >
                   <MaterialCommunityIcons name="close-circle" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
@@ -563,11 +1105,48 @@ export const EquiposScreen = () => {
             </TouchableOpacity>
           </View>
 
+          {/* Banner de Postulaciones Enviadas por el Jugador (en estado PENDIENTE) */}
+          {misPostulaciones.filter((p) => p.estado === 'PENDIENTE').length > 0 && (
+            <View style={styles.bannerMisPostulacionesContainer}>
+              <View style={styles.bannerMisPostulacionesHeader}>
+                <MaterialCommunityIcons name="clock-alert-outline" size={16} color={colors.warning} style={{ marginRight: 6 }} />
+                <Text style={styles.txtBannerMisPostulacionesTitulo}>
+                  TUS POSTULACIONES ACTIVAS ({misPostulaciones.filter((p) => p.estado === 'PENDIENTE').length})
+                </Text>
+              </View>
+              {misPostulaciones
+                .filter((p) => p.estado === 'PENDIENTE')
+                .map((post) => (
+                  <View key={post.id} style={styles.itemMiPostulacionCard}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.txtMiPostulacionEquipoNombre}>
+                        {post.equipoNombre ||
+                          equipos.find((e) => Number(e.id) === Number(post.equipoId))?.nombre ||
+                          `Equipo #${post.equipoId}`}
+                      </Text>
+                      <Text style={styles.txtMiPostulacionSub}>
+                        Enviada • Esperando respuesta del Team Leader
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.btnCancelarMiPostulacionMini}
+                      onPress={() => handleCancelarMiPostulacion(post.id)}
+                      activeOpacity={0.8}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <MaterialCommunityIcons name="close-circle-outline" size={14} color={colors.danger} style={{ marginRight: 3 }} />
+                      <Text style={styles.txtBtnCancelarMiPostulacionMini}>CANCELAR</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+            </View>
+          )}
+
           {/* Lista de Equipos */}
           {cargando ? (
             <View style={styles.centroCargando}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.txtCargando}>Explorando escuadras tácticas...</Text>
+              <Text style={styles.txtCargando}>Explorando equipos tácticos...</Text>
             </View>
           ) : (
             <FlatList
@@ -581,18 +1160,37 @@ export const EquiposScreen = () => {
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <MaterialCommunityIcons name="shield-outline" size={48} color={colors.textMuted} style={{ marginBottom: 10 }} />
-                  <Text style={styles.emptyTitulo}>No se encontraron escuadras</Text>
+                  <Text style={styles.emptyTitulo}>No se encontraron equipos</Text>
                   <Text style={styles.emptySubtitulo}>
-                    {regionFiltro !== 'TODAS'
-                      ? `No hay equipos registrados en ${regionFiltro}. Prueba seleccionando Todo Chile o funda la primera escuadra de tu zona.`
-                      : 'Aún no hay escuadras tácticas registradas. ¡Sé el primero en fundar un equipo!'}
+                    {modoFiltro === 'MI_REGION'
+                      ? `No hay equipos tácticos registrados aún en ${miRegion}. Puedes buscar en otras regiones de Chile o fundar el primero de tu zona.`
+                      : `No hay equipos registrados en ${regionFiltro}. Prueba buscando en otra región o funda un nuevo equipo.`}
                   </Text>
+                  {modoFiltro === 'MI_REGION' ? (
+                    <TouchableOpacity
+                      style={[styles.btnFundarPrimerEquipo, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary, marginBottom: 8 }]}
+                      onPress={() => setModalRegionVisible(true)}
+                      activeOpacity={0.85}
+                    >
+                      <MaterialCommunityIcons name="map-search-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                      <Text style={[styles.txtBtnFundarPrimerEquipo, { color: colors.primary }]}>BUSCAR EN OTRAS REGIONES</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.btnFundarPrimerEquipo, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary, marginBottom: 8 }]}
+                      onPress={seleccionarModoMiRegion}
+                      activeOpacity={0.85}
+                    >
+                      <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                      <Text style={[styles.txtBtnFundarPrimerEquipo, { color: colors.primary }]}>VOLVER A MI REGIÓN</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={styles.btnFundarPrimerEquipo}
                     onPress={() => setModalCrearVisible(true)}
                   >
                     <MaterialCommunityIcons name="plus-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.txtBtnFundarPrimerEquipo}>FUNDAR PRIMERA ESCUADRA</Text>
+                    <Text style={styles.txtBtnFundarPrimerEquipo}>FUNDAR PRIMER EQUIPO</Text>
                   </TouchableOpacity>
                 </View>
               }
@@ -638,17 +1236,17 @@ export const EquiposScreen = () => {
                 {esTlDeMiEquipo ? (
                   <View style={styles.badgeComandanteOficial}>
                     <MaterialCommunityIcons name="star-circle" size={14} color="#F59E0B" style={{ marginRight: 4 }} />
-                    <Text style={styles.txtBadgeComandanteOficial}>ERES EL TEAM LEADER (TL) OFICIAL ⭐</Text>
+                    <Text style={styles.txtBadgeComandanteOficial}>ERES EL TEAM LEADER (TL) OFICIAL</Text>
                   </View>
                 ) : esFundadorDeMiEquipo ? (
                   <View style={styles.badgeFundadorOficial}>
                     <MaterialCommunityIcons name="shield-crown" size={14} color={colors.primary} style={{ marginRight: 4 }} />
-                    <Text style={styles.txtBadgeFundadorOficial}>ERES EL FUNDADOR HISTÓRICO 🏛️</Text>
+                    <Text style={styles.txtBadgeFundadorOficial}>ERES EL FUNDADOR HISTÓRICO</Text>
                   </View>
                 ) : (
                   <View style={styles.badgeOperadorOficial}>
                     <MaterialCommunityIcons name="shield-account" size={14} color={colors.textSecondary} style={{ marginRight: 4 }} />
-                    <Text style={styles.txtBadgeOperadorOficial}>OPERADOR OFICIAL DE ESCUADRA</Text>
+                    <Text style={styles.txtBadgeOperadorOficial}>OPERADOR OFICIAL DE EQUIPO</Text>
                   </View>
                 )}
               </View>
@@ -661,20 +1259,27 @@ export const EquiposScreen = () => {
                     <Text style={styles.panelTlTitulo}>PANEL DE MANDO DEL TEAM LEADER (TL)</Text>
                   </View>
                   <Text style={styles.panelTlSub}>
-                    Como TL tienes el rango más alto para la gestión y control de postulaciones de la escuadra.
+                    Como TL tienes el rango más alto para la gestión y control de postulaciones del equipo.
                   </Text>
 
                   <View style={styles.tlControlPostulacionesRow}>
                     <View style={{ flex: 1, marginRight: 8 }}>
                       <Text style={styles.txtControlPostulacionesLabel}>ESTADO DE POSTULACIONES:</Text>
-                      <Text
-                        style={[
-                          styles.txtControlPostulacionesValor,
-                          miEquipo.postulacionesAbiertas ? { color: colors.success } : { color: colors.danger },
-                        ]}
-                      >
-                        {miEquipo.postulacionesAbiertas ? '🟢 ABIERTAS' : '🔒 CERRADAS'}
-                      </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                        <MaterialCommunityIcons
+                          name={miEquipo.postulacionesAbiertas ? 'radiobox-marked' : 'lock'}
+                          size={13}
+                          color={miEquipo.postulacionesAbiertas ? colors.success : colors.danger}
+                        />
+                        <Text
+                          style={[
+                            styles.txtControlPostulacionesValor,
+                            miEquipo.postulacionesAbiertas ? { color: colors.success } : { color: colors.danger },
+                          ]}
+                        >
+                          {miEquipo.postulacionesAbiertas ? 'ABIERTAS' : 'CERRADAS'}
+                        </Text>
+                      </View>
                     </View>
 
                     <TouchableOpacity
@@ -703,6 +1308,119 @@ export const EquiposScreen = () => {
                       )}
                     </TouchableOpacity>
                   </View>
+
+                  {/* Modificar Ficha/Datos del Equipo (TL / Fundador) */}
+                  <TouchableOpacity
+                    style={styles.btnModificarEquipoTl}
+                    onPress={handleAbrirModalEditarEquipo}
+                    activeOpacity={0.85}
+                  >
+                    <MaterialCommunityIcons name="circle-edit-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.txtBtnModificarEquipoTl}>EDITAR INFORMACIÓN DEL EQUIPO</Text>
+                  </TouchableOpacity>
+
+                  {/* SECCIÓN POSTULACIONES DE OPERADORES PENDIENTES */}
+                  <View style={styles.tlPostulacionesContainer}>
+                    <View style={styles.tlPostulacionesHeaderRow}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <MaterialCommunityIcons name="account-clock" size={18} color={colors.warning} style={{ marginRight: 6 }} />
+                        <Text style={styles.tlPostulacionesTitulo}>POSTULACIONES PENDIENTES</Text>
+                      </View>
+                      <View style={[styles.badgeConteoPostulaciones, postulacionesPendientes.length > 0 && styles.badgeConteoPostulacionesActivo]}>
+                        <Text style={styles.txtBadgeConteoPostulaciones}>{postulacionesPendientes.length}</Text>
+                      </View>
+                    </View>
+
+                    {postulacionesPendientes.length === 0 ? (
+                      <Text style={styles.txtSinPostulaciones}>
+                        No hay postulaciones pendientes de operadores por el momento.
+                      </Text>
+                    ) : (
+                      postulacionesPendientes.map((post) => (
+                        <View key={post.id} style={styles.postulanteCard}>
+                          <View style={styles.postulanteCardTop}>
+                            {post.jugadorAvatarUrl ? (
+                              <Image source={{ uri: post.jugadorAvatarUrl }} style={styles.postulanteAvatar} />
+                            ) : (
+                              <View style={styles.postulanteAvatarPlaceholder}>
+                                <MaterialCommunityIcons name="account" size={20} color={colors.textMuted} />
+                              </View>
+                            )}
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                              <Text style={styles.postulanteAlias}>{post.jugadorAlias || 'Operador'}</Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                <MaterialCommunityIcons name="map-marker" size={12} color={colors.textSecondary} style={{ marginRight: 2 }} />
+                                <Text style={styles.postulanteUbicacion}>
+                                  {post.jugadorCiudad || post.jugadorRegion || 'Ubicación no especificada'}
+                                </Text>
+                              </View>
+                              {post.jugadorRango && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                  <MaterialCommunityIcons name="medal-outline" size={12} color={colors.primary} style={{ marginRight: 3 }} />
+                                  <Text style={styles.postulanteRango}>{post.jugadorRango}</Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+
+                          {/* Contacto / WhatsApp proporcionado */}
+                          {post.contacto && (
+                            <View style={styles.postulanteContactoBox}>
+                              <MaterialCommunityIcons name="whatsapp" size={16} color="#25D366" style={{ marginRight: 6 }} />
+                              <Text style={styles.txtPostulanteContacto} numberOfLines={1}>
+                                {post.contacto}
+                              </Text>
+                              <TouchableOpacity
+                                style={styles.btnChatWhatsapp}
+                                onPress={() => handleAbrirWhatsApp(post.contacto, post.jugadorAlias)}
+                                activeOpacity={0.8}
+                              >
+                                <MaterialCommunityIcons name="chat" size={13} color="#fff" style={{ marginRight: 4 }} />
+                                <Text style={styles.txtBtnChatWhatsapp}>WHATSAPP</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
+
+                          {/* Mensaje / Presentación */}
+                          {post.mensaje ? (
+                            <View style={styles.postulanteMensajeBox}>
+                              <Text style={styles.txtPostulanteMensajeLabel}>PRESENTACIÓN / MOTIVACIÓN:</Text>
+                              <Text style={styles.txtPostulanteMensaje}>"{post.mensaje}"</Text>
+                            </View>
+                          ) : null}
+
+                          {/* Botones Aceptar / Rechazar */}
+                          <View style={styles.postulanteAccionesRow}>
+                            <TouchableOpacity
+                              style={[styles.btnRechazarPostulante, respondiendoPostulacionId === post.id && styles.botonDeshabilitado]}
+                              onPress={() => handleResponderPostulacion(post.id, 'RECHAZAR', post.jugadorAlias)}
+                              disabled={respondiendoPostulacionId === post.id}
+                              activeOpacity={0.8}
+                            >
+                              <MaterialCommunityIcons name="close" size={14} color={colors.danger} style={{ marginRight: 4 }} />
+                              <Text style={styles.txtBtnRechazarPostulante}>RECHAZAR</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={[styles.btnAceptarPostulante, respondiendoPostulacionId === post.id && styles.botonDeshabilitado]}
+                              onPress={() => handleResponderPostulacion(post.id, 'ACEPTAR', post.jugadorAlias)}
+                              disabled={respondiendoPostulacionId === post.id}
+                              activeOpacity={0.8}
+                            >
+                              {respondiendoPostulacionId === post.id ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                              ) : (
+                                <>
+                                  <MaterialCommunityIcons name="check-bold" size={14} color="#fff" style={{ marginRight: 4 }} />
+                                  <Text style={styles.txtBtnAceptarPostulante}>ACEPTAR AL EQUIPO</Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))
+                    )}
+                  </View>
                 </View>
               )}
 
@@ -730,7 +1448,7 @@ export const EquiposScreen = () => {
               {/* Reseña / Historia */}
               {miEquipo.descripcion ? (
                 <View style={styles.miEquipoSeccion}>
-                  <Text style={styles.miEquipoSeccionTitulo}>RESEÑA & HISTORIA DE LA ESCUADRA</Text>
+                  <Text style={styles.miEquipoSeccionTitulo}>RESEÑA & HISTORIA DEL EQUIPO</Text>
                   <Text style={styles.miEquipoDescripcionTexto}>{miEquipo.descripcion}</Text>
                 </View>
               ) : null}
@@ -804,11 +1522,11 @@ export const EquiposScreen = () => {
                     activeOpacity={0.8}
                   >
                     <MaterialCommunityIcons name="bomb" size={18} color="#EF4444" style={{ marginRight: 6 }} />
-                    <Text style={styles.txtBtnDesintegrarEquipo}>DESINTEGRAR ESCUADRA</Text>
+                    <Text style={styles.txtBtnDesintegrarEquipo}>DESINTEGRAR EQUIPO</Text>
                   </TouchableOpacity>
                   {(miEquipo.totalMiembros || 0) > 1 && (
                     <Text style={styles.ayudaDesintegrarTl}>
-                      Como Team Leader (TL), no puedes abandonar la escuadra directamente. Si deseas dejarla sin disolverla, primero transfiere el mando a otro operador con el botón "NOMBRAR TL ⭐".
+                      Como Team Leader (TL), no puedes abandonar el equipo directamente. Si deseas dejarlo sin disolverlo, primero transfiere el mando a otro operador con el botón "NOMBRAR TL".
                     </Text>
                   )}
                 </View>
@@ -820,7 +1538,7 @@ export const EquiposScreen = () => {
                   activeOpacity={0.8}
                 >
                   <MaterialCommunityIcons name="logout-variant" size={16} color={colors.danger} style={{ marginRight: 6 }} />
-                  <Text style={styles.txtBtnSalirEquipo}>DESVINCULARME DE ESTA ESCUADRA</Text>
+                  <Text style={styles.txtBtnSalirEquipo}>DESVINCULARME DE ESTE EQUIPO</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -832,7 +1550,7 @@ export const EquiposScreen = () => {
               </View>
               <Text style={styles.sinEquipoTituloPrincipal}>LOBO SOLITARIO (OPERADOR LIBRE)</Text>
               <Text style={styles.sinEquipoSubtituloPrincipal}>
-                Actualmente no perteneces a ninguna escuadra oficial. Puedes alistarte a un equipo existente de tu región, ingresar un código de invitación o fundar tu propio equipo militar.
+                Actualmente no perteneces a ningún equipo oficial. Puedes alistarte a un equipo existente de tu región, ingresar un código de invitación o fundar tu propio equipo militar.
               </Text>
 
               <View style={styles.sinEquipoBotones}>
@@ -842,16 +1560,19 @@ export const EquiposScreen = () => {
                   activeOpacity={0.85}
                 >
                   <MaterialCommunityIcons name="shield-plus" size={18} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.txtBtnFundarDesdeMiEquipo}>FUNDAR NUEVO EQUIPO 🛡️</Text>
+                  <Text style={styles.txtBtnFundarDesdeMiEquipo}>FUNDAR NUEVO EQUIPO</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.btnIngresarCodigoDesdeMiEquipo}
-                  onPress={() => setModalCodigoVisible(true)}
+                  onPress={() => {
+                    setErrorCodigoModal(null);
+                    setModalCodigoVisible(true);
+                  }}
                   activeOpacity={0.85}
                 >
                   <MaterialCommunityIcons name="key-variant" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={styles.txtBtnIngresarCodigoDesdeMiEquipo}>INGRESAR CÓDIGO DE INVITACIÓN 🔑</Text>
+                  <Text style={styles.txtBtnIngresarCodigoDesdeMiEquipo}>INGRESAR CÓDIGO DE INVITACIÓN</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -860,7 +1581,7 @@ export const EquiposScreen = () => {
                   activeOpacity={0.85}
                 >
                   <MaterialCommunityIcons name="compass" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
-                  <Text style={styles.txtBtnExplorarDesdeMiEquipo}>EXPLORAR ESCUADRAS DE CHILE</Text>
+                  <Text style={styles.txtBtnExplorarDesdeMiEquipo}>EXPLORAR EQUIPOS DE CHILE</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -868,138 +1589,16 @@ export const EquiposScreen = () => {
         </ScrollView>
       )}
 
-      {/* MODAL DETALLE DE EQUIPO (DESDE EXPLORAR) */}
-      <Modal
+      {/* MODAL DETALLE DE EQUIPO (MODULARIZADO) */}
+      <ModalFichaEquipo
         visible={modalDetalleVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalDetalleVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalDetalleCard}>
-            {equipoDetalle && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.modalDetalleHeader}>
-                  {equipoDetalle.logoUrl ? (
-                    <Image source={{ uri: equipoDetalle.logoUrl }} style={styles.modalDetalleLogo} />
-                  ) : (
-                    <View style={styles.modalDetalleLogoPlaceholder}>
-                      <MaterialCommunityIcons name="shield-account" size={36} color={colors.primary} />
-                    </View>
-                  )}
-
-                  <Text style={styles.modalDetalleNombre}>{equipoDetalle.nombre}</Text>
-
-                  {equipoDetalle.lema ? (
-                    <Text style={styles.modalDetalleLema}>"{equipoDetalle.lema}"</Text>
-                  ) : null}
-
-                  <View style={styles.modalDetalleUbicacionRow}>
-                    <MaterialCommunityIcons name="map-marker" size={15} color={colors.primary} style={{ marginRight: 4 }} />
-                    <Text style={styles.modalDetalleUbicacionTxt}>
-                      {equipoDetalle.ciudad ? `${equipoDetalle.ciudad}, ` : ''}
-                      {equipoDetalle.region || 'Chile'}
-                    </Text>
-                  </View>
-
-                  <View style={{ marginTop: 8 }}>
-                    {equipoDetalle.postulacionesAbiertas ? (
-                      <View style={styles.badgePostulacionesAbiertas}>
-                        <Text style={styles.txtPostulacionesAbiertas}>🟢 POSTULACIONES ABIERTAS</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.badgePostulacionesCerradas}>
-                        <Text style={styles.txtPostulacionesCerradas}>🔒 POSTULACIONES CERRADAS</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                {equipoDetalle.descripcion ? (
-                  <View style={styles.modalDetalleBloque}>
-                    <Text style={styles.modalDetalleBloqueTitulo}>BRIEFING DE LA ESCUADRA</Text>
-                    <Text style={styles.modalDetalleBloqueTexto}>{equipoDetalle.descripcion}</Text>
-                  </View>
-                ) : null}
-
-                {/* Roster de miembros en el modal */}
-                <View style={styles.modalDetalleBloque}>
-                  <Text style={styles.modalDetalleBloqueTitulo}>
-                    OPERADORES ACTIVOS ({equipoDetalle.miembros?.length || 0})
-                  </Text>
-                  <View style={styles.modalDetalleRoster}>
-                    {equipoDetalle.miembros?.map((m) => (
-                      <View key={m.id} style={styles.modalOperadorItem}>
-                        <Text style={styles.modalOperadorAlias}>
-                          • {m.alias}{' '}
-                          <Text style={styles.modalOperadorRol}>[{m.roles || 'ASALTO'}]</Text>
-                        </Text>
-                        {m.esTL ? (
-                          <View style={styles.badgeTlMini}>
-                            <MaterialCommunityIcons name="star" size={10} color="#F59E0B" style={{ marginRight: 2 }} />
-                            <Text style={styles.txtTlMini}>TL</Text>
-                          </View>
-                        ) : m.esFundador ? (
-                          <View style={styles.badgeFundadorMini}>
-                            <Text style={styles.txtFundadorMini}>FUNDADOR</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Aviso si postulaciones están cerradas */}
-                {!equipoDetalle.postulacionesAbiertas && miEquipo?.id !== equipoDetalle.id && (
-                  <View style={styles.bannerPostulacionesCerradasModal}>
-                    <MaterialCommunityIcons name="lock-alert" size={18} color={colors.warning} style={{ marginRight: 6 }} />
-                    <Text style={styles.txtBannerPostulacionesCerradas}>
-                      Las postulaciones públicas están cerradas por el Team Leader (TL). Si tienes un código de reclutamiento táctico, ingrésalo en la pestaña "Ingresar Código".
-                    </Text>
-                  </View>
-                )}
-
-                {/* Botón de Alistamiento o Estado Actual */}
-                <View style={styles.modalDetalleAcciones}>
-                  {miEquipo?.id === equipoDetalle.id ? (
-                    <View style={styles.badgeYaPerteneces}>
-                      <MaterialCommunityIcons name="check-circle" size={18} color={colors.success} style={{ marginRight: 6 }} />
-                      <Text style={styles.txtYaPerteneces}>FORMA PARTE DE ESTA ESCUADRA ✓</Text>
-                    </View>
-                  ) : equipoDetalle.postulacionesAbiertas ? (
-                    <TouchableOpacity
-                      style={[styles.btnAlistarmeModal, uniendose && styles.botonDeshabilitado]}
-                      onPress={() => handleUnirmeEquipo(equipoDetalle)}
-                      disabled={uniendose}
-                    >
-                      {uniendose ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <>
-                          <MaterialCommunityIcons name="shield-plus" size={18} color="#fff" style={{ marginRight: 6 }} />
-                          <Text style={styles.txtBtnAlistarmeModal}>ALISTARME A ESTA ESCUADRA 🛡️</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.btnAlistarmeDeshabilitado}>
-                      <MaterialCommunityIcons name="lock" size={16} color={colors.textMuted} style={{ marginRight: 6 }} />
-                      <Text style={styles.txtAlistarmeDeshabilitado}>POSTULACIONES CERRADAS 🔒</Text>
-                    </View>
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.btnCerrarModal}
-                    onPress={() => setModalDetalleVisible(false)}
-                  >
-                    <Text style={styles.txtBtnCerrarModal}>CERRAR</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
+        equipo={equipoDetalle}
+        miEquipoId={miEquipo?.id}
+        misPostulaciones={misPostulaciones}
+        onCerrar={() => setModalDetalleVisible(false)}
+        onAbrirPostulacion={handleAbrirModalPostulacion}
+        onCancelarPostulacion={handleCancelarMiPostulacion}
+      />
 
       {/* MODAL CREAR EQUIPO */}
       <Modal
@@ -1013,7 +1612,7 @@ export const EquiposScreen = () => {
             <View style={styles.modalHeaderRow}>
               <MaterialCommunityIcons name="shield-plus" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTituloPrincipal}>FUNDAR NUEVA ESCUADRA</Text>
+                <Text style={styles.modalTituloPrincipal}>FUNDAR NUEVO EQUIPO</Text>
                 <Text style={styles.modalSubtituloPrincipal}>
                   Serás registrado como Fundador y Team Leader (TL) oficial inicial del equipo.
                 </Text>
@@ -1021,7 +1620,7 @@ export const EquiposScreen = () => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 450 }}>
-              <Text style={styles.inputLabel}>NOMBRE DE LA ESCUADRA *</Text>
+              <Text style={styles.inputLabel}>NOMBRE DEL EQUIPO *</Text>
               <TextInput
                 style={styles.textInput}
                 placeholder="ej: Black Panthers Airsoft"
@@ -1057,7 +1656,7 @@ export const EquiposScreen = () => {
                 onChangeText={setCrearCiudad}
               />
 
-              <Text style={styles.inputLabel}>LOGOTIPO / INSIGNIA DE LA ESCUADRA</Text>
+              <Text style={styles.inputLabel}>LOGOTIPO / INSIGNIA DEL EQUIPO</Text>
               <View style={styles.logoPickerRow}>
                 {crearLogoUrl ? (
                   <Image source={{ uri: crearLogoUrl }} style={styles.logoPreview} />
@@ -1083,15 +1682,28 @@ export const EquiposScreen = () => {
                 placeholder="Describe la visión de combate, requisitos de ingreso..."
                 placeholderTextColor={colors.textMuted}
                 value={crearDescripcion}
-                onChangeText={setCrearDescripcion}
+                onChangeText={(t) => {
+                  if (errorCrearModal) setErrorCrearModal(null);
+                  setCrearDescripcion(t);
+                }}
                 multiline
               />
             </ScrollView>
 
+            {errorCrearModal ? (
+              <View style={styles.bannerErrorCodigoModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorCodigoModal}>{errorCrearModal}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.modalBotonesRow}>
               <TouchableOpacity
                 style={styles.btnCancelarModal}
-                onPress={() => setModalCrearVisible(false)}
+                onPress={() => {
+                  setErrorCrearModal(null);
+                  setModalCrearVisible(false);
+                }}
               >
                 <Text style={styles.txtBtnCancelarModal}>CANCELAR</Text>
               </TouchableOpacity>
@@ -1106,7 +1718,7 @@ export const EquiposScreen = () => {
                 ) : (
                   <>
                     <MaterialCommunityIcons name="shield-check" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.txtBtnConfirmarCrear}>FUNDAR ESCUADRA</Text>
+                    <Text style={styles.txtBtnConfirmarCrear}>FUNDAR EQUIPO</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -1139,15 +1751,28 @@ export const EquiposScreen = () => {
               placeholder="ej: FDEL01"
               placeholderTextColor={colors.textMuted}
               value={codigoIngresado}
-              onChangeText={(t) => setCodigoIngresado(t.toUpperCase())}
+              onChangeText={(t) => {
+                if (errorCodigoModal) setErrorCodigoModal(null);
+                setCodigoIngresado(t.toUpperCase());
+              }}
               maxLength={10}
               autoCapitalize="characters"
             />
 
+            {errorCodigoModal ? (
+              <View style={styles.bannerErrorCodigoModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorCodigoModal}>{errorCodigoModal}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.modalBotonesRow}>
               <TouchableOpacity
                 style={styles.btnCancelarModal}
-                onPress={() => setModalCodigoVisible(false)}
+                onPress={() => {
+                  setErrorCodigoModal(null);
+                  setModalCodigoVisible(false);
+                }}
               >
                 <Text style={styles.txtBtnCancelarModal}>CANCELAR</Text>
               </TouchableOpacity>
@@ -1180,33 +1805,51 @@ export const EquiposScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalRegionContent}>
-            <Text style={styles.modalRegionTitulo}>SELECCIONA REGIÓN DE CHILE</Text>
+            <Text style={styles.modalRegionTitulo}>SELECCIONA OTRA REGIÓN</Text>
             <ScrollView style={{ maxHeight: 350 }}>
+              {/* Opción Mi Región */}
               <TouchableOpacity
-                style={[styles.itemRegion, regionFiltro === 'TODAS' && styles.itemRegionActivo]}
+                style={[styles.itemRegion, modoFiltro === 'MI_REGION' && styles.itemRegionActivo]}
                 onPress={() => {
-                  setRegionFiltro('TODAS');
+                  seleccionarModoMiRegion();
                   setModalRegionVisible(false);
                 }}
               >
-                <Text style={[styles.txtRegion, regionFiltro === 'TODAS' && styles.txtRegionActivo]}>
-                  🇨🇱 Todo Chile (Todas las regiones)
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <MaterialCommunityIcons
+                    name="crosshairs-gps"
+                    size={14}
+                    color={modoFiltro === 'MI_REGION' ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={[styles.txtRegion, modoFiltro === 'MI_REGION' && styles.txtRegionActivo]}>
+                    Mi Región ({miRegion})
+                  </Text>
+                </View>
+                {modoFiltro === 'MI_REGION' && (
+                  <MaterialCommunityIcons
+                    name="check"
+                    size={16}
+                    color={colors.primary}
+                  />
+                )}
               </TouchableOpacity>
 
               {REGIONES_CHILE.map((reg) => {
-                const activo = regionFiltro === reg;
+                const activo = modoFiltro === 'PERSONALIZADA' && regionFiltro === reg;
                 return (
                   <TouchableOpacity
                     key={reg}
                     style={[styles.itemRegion, activo && styles.itemRegionActivo]}
-                    onPress={() => {
-                      setRegionFiltro(reg);
-                      setModalRegionVisible(false);
-                    }}
+                    onPress={() => seleccionarRegionEspecifica(reg)}
                   >
                     <Text style={[styles.txtRegion, activo && styles.txtRegionActivo]}>{reg}</Text>
-                    {activo && <Text style={styles.checkRegion}>✓</Text>}
+                    {activo && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -1230,7 +1873,7 @@ export const EquiposScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalRegionContent}>
-            <Text style={styles.modalRegionTitulo}>REGIÓN BASE DE TU ESCUADRA</Text>
+            <Text style={styles.modalRegionTitulo}>REGIÓN BASE DE TU EQUIPO</Text>
             <ScrollView style={{ maxHeight: 350 }}>
               {REGIONES_CHILE.map((reg) => {
                 const activo = crearRegion === reg;
@@ -1244,7 +1887,13 @@ export const EquiposScreen = () => {
                     }}
                   >
                     <Text style={[styles.txtRegion, activo && styles.txtRegionActivo]}>{reg}</Text>
-                    {activo && <Text style={styles.checkRegion}>✓</Text>}
+                    {activo && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -1258,6 +1907,398 @@ export const EquiposScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL MODIFICAR EQUIPO (TL / FUNDADOR) */}
+      <Modal
+        visible={modalEditarEquipoVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalEditarEquipoVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCrearCard}>
+            <View style={styles.modalHeaderRow}>
+              <MaterialCommunityIcons name="shield-edit" size={24} color={colors.primary} />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.modalTituloPrincipal}>MODIFICAR DATOS DEL EQUIPO</Text>
+                <Text style={styles.modalSubtituloPrincipal}>
+                  Actualiza el nombre, lema, ubicación, insignia o reseña de tu escuadrón.
+                </Text>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 450 }}>
+              <Text style={styles.inputLabel}>NOMBRE DEL EQUIPO *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="ej: Black Panthers Airsoft"
+                placeholderTextColor={colors.textMuted}
+                value={editNombre}
+                onChangeText={setEditNombre}
+              />
+
+              <Text style={styles.inputLabel}>LEMA O SLOGAN TÁCTICO (OPCIONAL)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="ej: Honor, Disciplina y Precisión"
+                placeholderTextColor={colors.textMuted}
+                value={editLema}
+                onChangeText={setEditLema}
+              />
+
+              <Text style={styles.inputLabel}>REGIÓN DE OPERACIONES</Text>
+              <TouchableOpacity
+                style={styles.selectorRegionInput}
+                onPress={() => setModalRegionEditarVisible(true)}
+              >
+                <Text style={styles.selectorRegionInputTxt}>{editRegion}</Text>
+                <MaterialCommunityIcons name="menu-down" size={20} color={colors.primary} />
+              </TouchableOpacity>
+
+              <Text style={styles.inputLabel}>CIUDAD O COMUNA BASE</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="ej: Santiago, Viña del Mar, Concepción..."
+                placeholderTextColor={colors.textMuted}
+                value={editCiudad}
+                onChangeText={setEditCiudad}
+              />
+
+              <Text style={styles.inputLabel}>LOGOTIPO / INSIGNIA DEL EQUIPO</Text>
+              <View style={styles.logoPickerRow}>
+                {editLogoUrl ? (
+                  <Image source={{ uri: editLogoUrl }} style={styles.logoPreview} />
+                ) : (
+                  <View style={styles.logoPreviewPlaceholder}>
+                    <MaterialCommunityIcons name="shield-outline" size={28} color={colors.textMuted} />
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={styles.btnElegirLogo}
+                  onPress={handleSeleccionarLogoEditarGaleria}
+                >
+                  <MaterialCommunityIcons name="camera" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.txtBtnElegirLogo}>
+                    {editLogoUrl ? 'CAMBIAR LOGO' : 'SUBIR DESDE MI TELÉFONO'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.inputLabel}>RESEÑA HISTÓRICA / REGLAS (OPCIONAL)</Text>
+              <TextInput
+                style={[styles.textInput, { minHeight: 75, textAlignVertical: 'top' }]}
+                placeholder="Describe la visión de combate, requisitos de ingreso..."
+                placeholderTextColor={colors.textMuted}
+                value={editDescripcion}
+                onChangeText={(t) => {
+                  if (errorEditarModal) setErrorEditarModal(null);
+                  setEditDescripcion(t);
+                }}
+                multiline
+              />
+            </ScrollView>
+
+            {errorEditarModal ? (
+              <View style={styles.bannerErrorCodigoModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorCodigoModal}>{errorEditarModal}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.modalBotonesRow}>
+              <TouchableOpacity
+                style={styles.btnCancelarModal}
+                onPress={() => {
+                  setErrorEditarModal(null);
+                  setModalEditarEquipoVisible(false);
+                }}
+              >
+                <Text style={styles.txtBtnCancelarModal}>CANCELAR</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.btnConfirmarCrear, guardandoEdicionEquipo && styles.botonDeshabilitado]}
+                onPress={handleGuardarEdicionEquipo}
+                disabled={guardandoEdicionEquipo}
+              >
+                {guardandoEdicionEquipo ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check-bold" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.txtBtnConfirmarCrear}>GUARDAR CAMBIOS</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL SELECTOR DE REGIÓN (MODIFICAR EQUIPO) */}
+      <Modal
+        visible={modalRegionEditarVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalRegionEditarVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalRegionContent}>
+            <Text style={styles.modalRegionTitulo}>REGIÓN BASE DE TU EQUIPO</Text>
+            <ScrollView style={{ maxHeight: 350 }}>
+              {REGIONES_CHILE.map((reg) => {
+                const activo = editRegion === reg;
+                return (
+                  <TouchableOpacity
+                    key={reg}
+                    style={[styles.itemRegion, activo && styles.itemRegionActivo]}
+                    onPress={() => {
+                      setEditRegion(reg);
+                      setModalRegionEditarVisible(false);
+                    }}
+                  >
+                    <Text style={[styles.txtRegion, activo && styles.txtRegionActivo]}>{reg}</Text>
+                    {activo && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.btnCerrarModalRegion}
+              onPress={() => setModalRegionEditarVisible(false)}
+            >
+              <Text style={styles.txtCerrarModalRegion}>CERRAR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL ENVIAR POSTULACIÓN AL EQUIPO */}
+      <Modal
+        visible={modalPostularVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalPostularVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCrearCard}>
+            <View style={styles.modalHeaderRow}>
+              <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.modalTituloPrincipal}>POSTULAR AL EQUIPO</Text>
+                <Text style={styles.modalSubtituloPrincipal}>
+                  {equipoParaPostular ? equipoParaPostular.nombre : 'Equipo'}
+                </Text>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              <View style={styles.infoPostulacionBanner}>
+                <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} style={{ marginRight: 8, marginTop: 2 }} />
+                <Text style={styles.txtInfoPostulacionBanner}>
+                  El Team Leader (TL) revisará tus antecedentes y se pondrá en contacto contigo por WhatsApp para coordinar tu incorporación o prueba de juego.
+                </Text>
+              </View>
+
+              <Text style={styles.inputLabel}>TU WHATSAPP O TELÉFONO DE CONTACTO *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="ej: +56 9 1234 5678"
+                placeholderTextColor={colors.textMuted}
+                value={postulacionContacto}
+                onChangeText={setPostulacionContacto}
+                keyboardType="phone-pad"
+              />
+
+              <Text style={styles.inputLabel}>MENSAJE / PRESENTACIÓN TÁCTICA (OPCIONAL)</Text>
+              <TextInput
+                style={[styles.textInput, { minHeight: 90, textAlignVertical: 'top' }]}
+                placeholder="Cuéntale al TL sobre tu experiencia en airsoft, réplicas, rol favorito, disponibilidad de fin de semana..."
+                placeholderTextColor={colors.textMuted}
+                value={postulacionMensaje}
+                onChangeText={setPostulacionMensaje}
+                multiline
+              />
+            </ScrollView>
+
+            {errorPostularModal ? (
+              <View style={styles.bannerErrorCodigoModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorCodigoModal}>{errorPostularModal}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.modalBotonesRow}>
+              <TouchableOpacity
+                style={styles.btnCancelarModal}
+                onPress={() => {
+                  setErrorPostularModal(null);
+                  setModalPostularVisible(false);
+                }}
+              >
+                <Text style={styles.txtBtnCancelarModal}>CANCELAR</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.btnConfirmarCrear, enviandoPostulacion && styles.botonDeshabilitado]}
+                onPress={handleEnviarPostulacion}
+                disabled={enviandoPostulacion}
+              >
+                {enviandoPostulacion ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="send" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.txtBtnConfirmarCrear}>ENVIAR POSTULACIÓN</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* MODAL RECHAZAR POSTULACIÓN CON MOTIVO */}
+      <Modal
+        visible={modalRechazoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalRechazoVisible(false)}
+      >
+        <View style={styles.modalOverlayFondo}>
+          <View style={styles.modalCardRechazo}>
+            <View style={styles.modalHeaderRowRechazo}>
+              <MaterialCommunityIcons name="close-octagon" size={24} color={colors.danger} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.modalTituloRechazo}>DECLINAR POSTULACIÓN</Text>
+                <Text style={styles.modalSubtituloRechazo}>
+                  Indica el motivo para notificar a {postulacionRechazo?.alias ? `"${postulacionRechazo.alias}"` : 'este operador'}:
+                </Text>
+              </View>
+            </View>
+
+            {/* Chips Rápidos de Motivo */}
+            <Text style={styles.labelMotivosRapidos}>MOTIVOS COMUNES (TOCA PARA AUTOCOMPLETAR):</Text>
+            <View style={styles.chipsMotivosContainer}>
+              {[
+                'Escuadra completa (sin cupos)',
+                'Rango o experiencia insuficiente',
+                'Incompatibilidad de horarios',
+                'Ubicación / Fuera de zona',
+              ].map((chip) => (
+                <TouchableOpacity
+                  key={chip}
+                  style={[
+                    styles.chipMotivo,
+                    motivoRechazoTexto === chip && styles.chipMotivoActivo,
+                  ]}
+                  onPress={() => setMotivoRechazoTexto(chip)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.txtChipMotivo,
+                      motivoRechazoTexto === chip && styles.txtChipMotivoActivo,
+                    ]}
+                  >
+                    {chip}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.labelMotivosRapidos}>DETALLE O MENSAJE PERSONALIZADO:</Text>
+            <TextInput
+              style={styles.inputMotivoRechazo}
+              placeholder="Explica el motivo del rechazo para que el postulante pueda estar al tanto..."
+              placeholderTextColor={colors.textMuted}
+              value={motivoRechazoTexto}
+              onChangeText={setMotivoRechazoTexto}
+              multiline
+              numberOfLines={3}
+            />
+
+            <View style={styles.avisoNotifRechazo}>
+              <MaterialCommunityIcons name="information-outline" size={14} color={colors.textSecondary} style={{ marginRight: 4 }} />
+              <Text style={styles.txtAvisoNotifRechazo}>
+                El operador recibirá este motivo en su campana de notificaciones.
+              </Text>
+            </View>
+
+            <View style={styles.modalBotonesRow}>
+              <TouchableOpacity
+                style={styles.btnCancelarModal}
+                onPress={() => setModalRechazoVisible(false)}
+                disabled={enviandoRechazo}
+              >
+                <Text style={styles.txtBtnCancelarModal}>CANCELAR</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.btnConfirmarRechazoModal, enviandoRechazo && styles.botonDeshabilitado]}
+                onPress={handleConfirmarRechazo}
+                disabled={enviandoRechazo}
+              >
+                {enviandoRechazo ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="close-circle-outline" size={16} color="#fff" style={{ marginRight: 4 }} />
+                    <Text style={styles.txtBtnConfirmarRechazoModal}>DECLINAR SOLICITUD</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Táctico de Notificaciones */}
+      <ModalNotificaciones
+        visible={modalNotificacionesVisible}
+        onClose={() => setModalNotificacionesVisible(false)}
+        onActualizarConteo={setConteoNoLeidas}
+      />
+
+      {/* Modal Táctico para Desintegrar Equipo */}
+      <ModalConfirmacionTactico
+        visible={modalDesintegrarVisible}
+        titulo="¿DESINTEGRAR EQUIPO?"
+        mensaje={
+          miEquipo
+            ? (miEquipo.totalMiembros || 0) <= 1
+              ? `Eres el único operador y Team Leader de "${miEquipo.nombre}". Al desintegrar el equipo, se eliminará definitivamente del sistema y del radar táctico.`
+              : `Eres el Team Leader de "${miEquipo.nombre}". ¡Esta acción es definitiva! Disolverás el equipo por completo, desvinculando a los ${miEquipo.totalMiembros} operadores y eliminando su registro de forma permanente.`
+            : ''
+        }
+        textoConfirmar="SÍ, DESINTEGRAR"
+        textoCancelar="CANCELAR"
+        tipo="peligro"
+        icono="bomb"
+        cargando={desintegrandoEquipo}
+        onConfirmar={handleConfirmarDesintegracion}
+        onCancelar={() => setModalDesintegrarVisible(false)}
+      />
+
+      {/* Modal Táctico Unificado de Confirmaciones y Avisos */}
+      <ModalConfirmacionTactico
+        visible={modalTactico.visible}
+        titulo={modalTactico.titulo}
+        mensaje={modalTactico.mensaje}
+        textoConfirmar={modalTactico.textoConfirmar}
+        textoCancelar={modalTactico.textoCancelar}
+        tipo={modalTactico.tipo}
+        icono={modalTactico.icono}
+        soloAceptar={modalTactico.soloAceptar}
+        cargando={modalTactico.cargando}
+        onConfirmar={modalTactico.onConfirmar || (() => setModalTactico((prev) => ({ ...prev, visible: false })))}
+        onCancelar={modalTactico.onCancelar || (() => setModalTactico((prev) => ({ ...prev, visible: false })))}
+      />
     </View>
   );
 };
@@ -1269,8 +2310,46 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 54,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+  },
+  headerTopRowConCampana: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  btnCampanaHeader: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  badgeCampanaContador: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: colors.primary,
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.background,
+  },
+  txtBadgeCampanaContador: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '900',
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -1317,6 +2396,83 @@ const styles = StyleSheet.create({
   },
   segmentTxtActivo: {
     color: '#fff',
+  },
+  filtrosBarChips: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
+  filtrosRowChips: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 10,
+  },
+  filtroChipDos: {
+    flex: 1,
+    backgroundColor: colors.inputBg,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filtrosScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filtroChip: {
+    backgroundColor: colors.inputBg,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filtroChipActivo: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+  },
+  filtroChipTxt: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  filtroChipTxtActivo: {
+    color: colors.primary,
+  },
+  filtroActivoBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+  },
+  filtroActivoTxt: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
+  },
+  limpiarFiltroTxt: {
+    color: colors.danger,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  buscadorBox: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
   filtrosBar: {
     paddingHorizontal: 16,
@@ -1478,6 +2634,83 @@ const styles = StyleSheet.create({
   badgePostulacionesRow: {
     flexDirection: 'row',
     marginTop: 4,
+  },
+  badgePostulacionRow: {
+    marginTop: 6,
+  },
+  badgePostulacionPendienteCardList: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+  },
+  txtBadgePostulacionPendienteList: {
+    color: colors.warning,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  bannerMisPostulacionesContainer: {
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+  },
+  bannerMisPostulacionesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  txtBannerMisPostulacionesTitulo: {
+    color: colors.warning,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  itemMiPostulacionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+  },
+  txtMiPostulacionEquipoNombre: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  txtMiPostulacionSub: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  btnCancelarMiPostulacionMini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    minHeight: 28,
+  },
+  txtBtnCancelarMiPostulacionMini: {
+    color: colors.danger,
+    fontSize: 10,
+    fontWeight: '800',
   },
   badgePostulacionesAbiertas: {
     backgroundColor: 'rgba(34, 197, 94, 0.12)',
@@ -1758,6 +2991,253 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  btnModificarEquipoTl: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  txtBtnModificarEquipoTl: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  // Postulaciones TL
+  tlPostulacionesContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  tlPostulacionesHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  tlPostulacionesTitulo: {
+    color: colors.warning,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  badgeConteoPostulaciones: {
+    backgroundColor: colors.inputBg,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  badgeConteoPostulacionesActivo: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderColor: colors.warning,
+  },
+  txtBadgeConteoPostulaciones: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  txtSinPostulaciones: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontStyle: 'italic',
+    paddingVertical: 6,
+  },
+  postulanteCard: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  postulanteCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postulanteAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  postulanteAvatarPlaceholder: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.inputBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  postulanteAlias: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  postulanteUbicacion: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  postulanteRango: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  postulanteContactoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(37, 211, 102, 0.08)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(37, 211, 102, 0.25)',
+  },
+  txtPostulanteContacto: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  btnChatWhatsapp: {
+    backgroundColor: '#25D366',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  txtBtnChatWhatsapp: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  postulanteMensajeBox: {
+    backgroundColor: colors.inputBg,
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 6,
+  },
+  txtPostulanteMensajeLabel: {
+    color: colors.textMuted,
+    fontSize: 9,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  txtPostulanteMensaje: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontStyle: 'italic',
+    lineHeight: 15,
+  },
+  postulanteAccionesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  btnRechazarPostulante: {
+    flex: 1,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 6,
+    minHeight: 36,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  txtBtnRechazarPostulante: {
+    color: colors.danger,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  btnAceptarPostulante: {
+    flex: 1.3,
+    backgroundColor: colors.success,
+    borderRadius: 6,
+    minHeight: 36,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  txtBtnAceptarPostulante: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  // Postulación en Detalle Equipo
+  boxPostulacionEnviada: {
+    marginBottom: 8,
+    width: '100%',
+  },
+  badgePostulacionPendienteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    marginBottom: 6,
+  },
+  txtPostulacionPendienteTitulo: {
+    color: colors.warning,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  txtPostulacionPendienteSub: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    lineHeight: 14,
+    marginTop: 2,
+  },
+  btnCancelarMiPostulacion: {
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  txtBtnCancelarMiPostulacion: {
+    color: colors.danger,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textDecorationLine: 'underline',
+  },
+  infoPostulacionBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 109, 40, 0.25)',
+  },
+  txtInfoPostulacionBanner: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 15,
   },
   codigoReclutaBox: {
     backgroundColor: 'rgba(224, 109, 40, 0.08)',
@@ -2331,6 +3811,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.inputBg,
     borderRadius: 8,
+    minHeight: 46,
     paddingVertical: 12,
   },
   txtBtnCancelarModal: {
@@ -2345,6 +3826,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primary,
     borderRadius: 8,
+    minHeight: 46,
     paddingVertical: 12,
   },
   txtBtnConfirmarCrear: {
@@ -2446,5 +3928,131 @@ const styles = StyleSheet.create({
   },
   botonDeshabilitado: {
     opacity: 0.6,
+  },
+  modalOverlayFondo: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 18,
+  },
+  modalCardRechazo: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 18,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  modalHeaderRowRechazo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+  },
+  modalTituloRechazo: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  modalSubtituloRechazo: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  labelMotivosRapidos: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  chipsMotivosContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  chipMotivo: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  chipMotivoActivo: {
+    borderColor: colors.danger,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+  },
+  txtChipMotivo: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  txtChipMotivoActivo: {
+    color: colors.danger,
+    fontWeight: '900',
+  },
+  inputMotivoRechazo: {
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 8,
+    padding: 10,
+    color: colors.text,
+    fontSize: 12,
+    minHeight: 75,
+    textAlignVertical: 'top',
+  },
+  avisoNotifRechazo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  txtAvisoNotifRechazo: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    flex: 1,
+  },
+  btnConfirmarRechazoModal: {
+    flex: 1.3,
+    backgroundColor: colors.danger,
+    borderRadius: 8,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  txtBtnConfirmarRechazoModal: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  bannerErrorCodigoModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  txtErrorCodigoModal: {
+    color: colors.danger,
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,22 +8,26 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
-  Alert,
   Modal,
   TextInput,
   ScrollView,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import {
   listarCanchasApi,
   crearCanchaApi,
   modificarCanchaApi,
   Cancha,
 } from '../../api/canchas.service';
+import { crearTicketApi } from '../../api/configuracion.service';
 import { useAuth } from '../../context/AuthContext';
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
 import { colors } from '../../theme/colors';
 import { useFocusEffect } from '@react-navigation/native';
+import { ModalFichaCancha } from './components/ModalFichaCancha';
 
 export const CanchasScreen = () => {
   const { jugador } = useAuth();
@@ -32,12 +36,26 @@ export const CanchasScreen = () => {
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
 
+  // Modal para Ver Ficha Detallada de la Cancha
+  const [canchaDetalleModal, setCanchaDetalleModal] = useState<Cancha | null>(null);
+
+  // Modal para Sugerir Cambios a la Cancha (Operadores regulares)
+  const [modalSugerirVisible, setModalSugerirVisible] = useState(false);
+  const [canchaParaSugerir, setCanchaParaSugerir] = useState<Cancha | null>(null);
+  const [textoPropuesta, setTextoPropuesta] = useState('');
+  const [fotosSugerencia, setFotosSugerencia] = useState<{ url: string; descripcion: string }[]>([]);
+  const [enviandoSugerencia, setEnviandoSugerencia] = useState(false);
+
   // Filtros de Regiones
-  // 'TODAS' | 'MI_REGION' | 'PERSONALIZADA'
-  const [modoFiltro, setModoFiltro] = useState<'TODAS' | 'MI_REGION' | 'PERSONALIZADA'>('TODAS');
-  const [regionesFiltro, setRegionesFiltro] = useState<string[]>([]);
+  // 'MI_REGION' | 'TODAS' | 'PERSONALIZADA'
+  const miRegion = jugador?.region || 'Región Metropolitana';
+  const [modoFiltro, setModoFiltro] = useState<'MI_REGION' | 'TODAS' | 'PERSONALIZADA'>('MI_REGION');
+  const [regionesFiltro, setRegionesFiltro] = useState<string[]>([miRegion]);
   const [modalFiltroVisible, setModalFiltroVisible] = useState(false);
   const [regionesTemporales, setRegionesTemporales] = useState<string[]>([]);
+
+  // Filtro de Modalidad: 'TODAS' | 'ABIERTAS' | 'EQUIPO'
+  const [filtroTipoCancha, setFiltroTipoCancha] = useState<'TODAS' | 'ABIERTAS' | 'EQUIPO'>('TODAS');
 
   // Modal para Crear / Editar Cancha
   const [modalFormVisible, setModalFormVisible] = useState(false);
@@ -47,30 +65,49 @@ export const CanchasScreen = () => {
   // Campos del formulario
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [regionForm, setRegionForm] = useState(jugador?.region || 'Región Metropolitana');
+  const [regionForm, setRegionForm] = useState(miRegion);
   const [ciudadForm, setCiudadForm] = useState('');
   const [latitudForm, setLatitudForm] = useState('');
   const [longitudForm, setLongitudForm] = useState('');
   const [esAbiertaForm, setEsAbiertaForm] = useState(true);
   const [asociarAEscuadra, setAsociarAEscuadra] = useState(false);
+  const [fotosForm, setFotosForm] = useState<{ url: string; descripcion: string }[]>([]);
   const [modalSelectorRegionForm, setModalSelectorRegionForm] = useState(false);
   const [guardandoForm, setGuardandoForm] = useState(false);
-
-  const miRegion = jugador?.region || 'Región Metropolitana';
+  const [errorFormModal, setErrorFormModal] = useState<string | null>(null);
+  const [errorSugerenciaModal, setErrorSugerenciaModal] = useState<string | null>(null);
+  const [avisoTactico, setAvisoTactico] = useState<{
+    visible: boolean;
+    titulo: string;
+    mensaje: string;
+    tipo: 'exito' | 'advertencia' | 'peligro';
+    icono?: keyof typeof MaterialCommunityIcons.glyphMap;
+  }>({
+    visible: false,
+    titulo: '',
+    mensaje: '',
+    tipo: 'exito',
+  });
 
   const cargarCanchas = async () => {
     try {
       let data: Cancha[] = [];
-      if (modoFiltro === 'TODAS') {
-        data = await listarCanchasApi();
-      } else if (modoFiltro === 'MI_REGION') {
-        data = await listarCanchasApi(miRegion);
+      if (modoFiltro === 'MI_REGION') {
+        data = await listarCanchasApi(miRegion, jugador?.id);
+      } else if (modoFiltro === 'TODAS') {
+        data = await listarCanchasApi(undefined, jugador?.id);
       } else if (modoFiltro === 'PERSONALIZADA') {
-        data = await listarCanchasApi({ regiones: regionesFiltro });
+        data = await listarCanchasApi({ regiones: regionesFiltro }, jugador?.id);
       }
       setCanchas(data);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudieron sincronizar las canchas');
+      setAvisoTactico({
+        visible: true,
+        titulo: 'ERROR DE SINCRONIZACIÓN',
+        mensaje: error.message || 'No se pudieron sincronizar las canchas.',
+        tipo: 'peligro',
+        icono: 'radar',
+      });
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -80,13 +117,36 @@ export const CanchasScreen = () => {
   useFocusEffect(
     useCallback(() => {
       cargarCanchas();
-    }, [modoFiltro, regionesFiltro]),
+    }, [modoFiltro, regionesFiltro, jugador?.id]),
   );
 
   const onRefresh = () => {
     setRefrescando(true);
     cargarCanchas();
   };
+
+  // Filtro activo: descartar canchas en revisión y aplicar filtro de tipo (Abiertas vs De Equipo)
+  const canchasFiltradas = useMemo(() => {
+    return canchas.filter((c) => {
+      // 1. Las canchas en revisión técnica NO deben listarse en el radar de campos activos
+      if (c.estado === 'EN_REVISION') return false;
+
+      // 2. Filtro de modalidad: Abierta vs De Equipo
+      const esAbierta = c.esAbierta !== false && !c.adminEquipoId;
+      if (filtroTipoCancha === 'ABIERTAS' && !esAbierta) return false;
+      if (filtroTipoCancha === 'EQUIPO' && esAbierta) return false;
+
+      return true;
+    });
+  }, [canchas, filtroTipoCancha]);
+
+  // Conteos para los botones de filtro
+  const { conteoTodas, conteoAbiertas, conteoEquipo } = useMemo(() => {
+    const activas = canchas.filter((c) => c.estado !== 'EN_REVISION');
+    const abiertas = activas.filter((c) => c.esAbierta !== false && !c.adminEquipoId).length;
+    const equipo = activas.filter((c) => Boolean(c.adminEquipoId) || c.esAbierta === false).length;
+    return { conteoTodas: activas.length, conteoAbiertas: abiertas, conteoEquipo: equipo };
+  }, [canchas]);
 
   // Manejo de Filtros
   const seleccionarModoTodas = () => {
@@ -135,6 +195,173 @@ export const CanchasScreen = () => {
     }
   };
 
+  // Manejo de Fotos del Formulario
+  const handleAgregarFoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setAvisoTactico({
+          visible: true,
+          titulo: 'PERMISO REQUERIDO',
+          mensaje: 'Se necesita acceso a tu galería para añadir evidencias fotográficas del campo.',
+          tipo: 'advertencia',
+          icono: 'image-off',
+        });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.65,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        const base64Img = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        setFotosForm((prev) => [
+          ...prev,
+          { url: base64Img, descripcion: '' },
+        ]);
+      }
+    } catch (error: any) {
+      setAvisoTactico({
+        visible: true,
+        titulo: 'ERROR DE IMAGEN',
+        mensaje: error.message || 'No se pudo cargar la imagen del campo.',
+        tipo: 'peligro',
+        icono: 'alert-circle-outline',
+      });
+    }
+  };
+
+  const handleActualizarDescFoto = (index: number, desc: string) => {
+    setFotosForm((prev) => {
+      const copia = [...prev];
+      copia[index] = { ...copia[index], descripcion: desc };
+      return copia;
+    });
+  };
+
+  const handleEliminarFoto = (index: number) => {
+    setFotosForm((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Manejo de Sugerencias de Cambios (Para Operadores regulares)
+  const abrirModalSugerir = (cancha: Cancha) => {
+    setCanchaParaSugerir(cancha);
+    setTextoPropuesta('');
+    setFotosSugerencia([]);
+    setErrorSugerenciaModal(null);
+    setModalSugerirVisible(true);
+  };
+
+  const handleAgregarFotoSugerencia = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setAvisoTactico({
+          visible: true,
+          titulo: 'PERMISO REQUERIDO',
+          mensaje: 'Se necesita acceso a tu galería para añadir evidencias fotográficas.',
+          tipo: 'advertencia',
+          icono: 'image-off',
+        });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.65,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        const base64Img = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        setFotosSugerencia((prev) => [
+          ...prev,
+          { url: base64Img, descripcion: '' },
+        ]);
+      }
+    } catch (error: any) {
+      setAvisoTactico({
+        visible: true,
+        titulo: 'ERROR DE IMAGEN',
+        mensaje: error.message || 'No se pudo cargar la imagen.',
+        tipo: 'peligro',
+        icono: 'alert-circle-outline',
+      });
+    }
+  };
+
+  const handleEliminarFotoSugerencia = (index: number) => {
+    setFotosSugerencia((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleActualizarDescFotoSugerencia = (index: number, desc: string) => {
+    setFotosSugerencia((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, descripcion: desc } : item)),
+    );
+  };
+
+  const handleEnviarSugerencia = async () => {
+    if (!canchaParaSugerir) return;
+    if (!textoPropuesta.trim()) {
+      setErrorSugerenciaModal('Por favor describe las sugerencias o correcciones para la cancha.');
+      return;
+    }
+    setErrorSugerenciaModal(null);
+
+    const nombreCancha = canchaParaSugerir.nombre;
+
+    try {
+      setEnviandoSugerencia(true);
+      let cuerpoMensaje = `Sugerencia de actualización para la cancha "${canchaParaSugerir.nombre}" (ID: ${canchaParaSugerir.id})\n\nPropuesta del Operador:\n${textoPropuesta.trim()}`;
+
+      if (fotosSugerencia.length > 0) {
+        cuerpoMensaje +=
+          `\n\nFotos y Evidencias adjuntas (${fotosSugerencia.length}):\n` +
+          fotosSugerencia
+            .map(
+              (f, i) =>
+                `Foto ${i + 1}: ${f.descripcion ? f.descripcion : 'Sin descripción'}\nURL/Data: ${f.url}`,
+            )
+            .join('\n');
+      }
+
+      await crearTicketApi({
+        tipo: 'CANCHA',
+        titulo: `Sugerencia para campo: ${canchaParaSugerir.nombre}`,
+        mensaje: cuerpoMensaje,
+      });
+
+      setModalSugerirVisible(false);
+      setCanchaParaSugerir(null);
+      setTextoPropuesta('');
+      setFotosSugerencia([]);
+      setErrorSugerenciaModal(null);
+
+      setAvisoTactico({
+        visible: true,
+        titulo: 'SUGERENCIA TRANSMITIDA',
+        mensaje: `Tu propuesta de cambios para "${nombreCancha}" ha sido enviada a la Comandancia. El equipo de administración revisará tus aportes y fotos para actualizar la ficha oficial.`,
+        tipo: 'exito',
+        icono: 'email-check-outline',
+      });
+    } catch (error: any) {
+      setErrorSugerenciaModal(error.message || 'No se pudo conectar con la comandancia.');
+    } finally {
+      setEnviandoSugerencia(false);
+    }
+  };
+
   // Abrir formulario para Crear
   const abrirFormCrear = () => {
     setModoForm('CREAR');
@@ -147,6 +374,8 @@ export const CanchasScreen = () => {
     setLongitudForm('');
     setEsAbiertaForm(true);
     setAsociarAEscuadra(false);
+    setFotosForm([]);
+    setErrorFormModal(null);
     setModalFormVisible(true);
   };
 
@@ -162,15 +391,23 @@ export const CanchasScreen = () => {
     setLongitudForm(cancha.longitud ? cancha.longitud.toString() : '');
     setEsAbiertaForm(cancha.esAbierta !== undefined ? cancha.esAbierta : true);
     setAsociarAEscuadra(Boolean(cancha.adminEquipoId));
+    setFotosForm(
+      (cancha.fotos || []).map((f) => ({
+        url: f.url,
+        descripcion: f.descripcion || '',
+      })),
+    );
+    setErrorFormModal(null);
     setModalFormVisible(true);
   };
 
   // Guardar Cancha (Crear o Editar)
   const handleGuardarCancha = async () => {
     if (!nombre.trim()) {
-      Alert.alert('Atención', 'El nombre del campo de juego es obligatorio.');
+      setErrorFormModal('El nombre del campo de juego es obligatorio.');
       return;
     }
+    setErrorFormModal(null);
 
     try {
       setGuardandoForm(true);
@@ -194,20 +431,36 @@ export const CanchasScreen = () => {
         longitud: lngNum,
         esAbierta: esAbiertaForm,
         adminEquipoId: adminEquipoIdPayload,
+        fotos: fotosForm.filter((f) => f.url.trim().length > 0),
       };
 
       if (modoForm === 'CREAR') {
         await crearCanchaApi(payload);
-        Alert.alert('🎯 ¡CAMPO REGISTRADO!', `El campo "${nombre.trim()}" fue añadido al radar.`);
+        setModalFormVisible(false);
+        setErrorFormModal(null);
+        cargarCanchas();
+        setAvisoTactico({
+          visible: true,
+          titulo: 'CAMPO ENVIADO A REVISIÓN',
+          mensaje: `El campo "${nombre.trim()}" ha sido ingresado en periodo de revisión técnica.\n\nPuedes revisar el estado y seguimiento de validación desde Sugerencias & Tickets en Ajustes.`,
+          tipo: 'exito',
+          icono: 'clipboard-check-outline',
+        });
       } else if (canchaAEditarId) {
         await modificarCanchaApi(canchaAEditarId, payload);
-        Alert.alert('¡ACTUALIZADO!', `La información del campo fue actualizada con éxito.`);
+        setModalFormVisible(false);
+        setErrorFormModal(null);
+        cargarCanchas();
+        setAvisoTactico({
+          visible: true,
+          titulo: 'INFORMACIÓN ACTUALIZADA',
+          mensaje: `La información del campo fue actualizada con éxito en la base de datos.`,
+          tipo: 'exito',
+          icono: 'check-decagram',
+        });
       }
-
-      setModalFormVisible(false);
-      cargarCanchas();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo guardar la cancha.');
+      setErrorFormModal(error.message || 'No se pudo guardar la información del campo.');
     } finally {
       setGuardandoForm(false);
     }
@@ -216,10 +469,7 @@ export const CanchasScreen = () => {
   const renderCancha = ({ item }: { item: Cancha }) => {
     const tieneCoordenadas = item.latitud !== undefined && item.longitud !== undefined;
     const esCanchaAbierta = item.esAbierta !== false && !item.adminEquipoId;
-    const esDeMiEscuadra = Boolean(item.adminEquipoId && item.adminEquipoId === jugador?.equipoId);
-
-    // Cancha abierta editable por todos de momento, o por el equipo administrador
-    const puedeEditar = esCanchaAbierta || esDeMiEscuadra;
+    const esAdmin = Boolean(jugador?.esAdmin);
 
     return (
       <View style={styles.cardCancha}>
@@ -234,34 +484,45 @@ export const CanchasScreen = () => {
             </Text>
           </View>
 
-          {/* Badge de Administración */}
-          <View
-            style={[
-              styles.badgeAdmin,
-              esCanchaAbierta ? styles.badgeAbierta : styles.badgeEscuadra,
-            ]}
-          >
-            <Text
+          {/* Badges de Estado y Administración */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            {item.estado === 'EN_REVISION' && (
+              <View style={styles.badgeEnRevision}>
+                <MaterialCommunityIcons name="clock-outline" size={10} color={colors.warning} style={{ marginRight: 3 }} />
+                <Text style={styles.textoBadgeEnRevision}>EN REVISIÓN</Text>
+              </View>
+            )}
+
+            <View
               style={[
-                styles.textoBadgeAdmin,
-                esCanchaAbierta ? styles.textoAbierta : styles.textoEscuadra,
+                styles.badgeAdmin,
+                esCanchaAbierta ? styles.badgeAbierta : styles.badgeEscuadra,
               ]}
             >
-              {esCanchaAbierta
-                ? 'ABIERTA'
-                : (item.equipoAdminNombre || 'ESCUADRA')}
-            </Text>
+              <Text
+                style={[
+                  styles.textoBadgeAdmin,
+                  esCanchaAbierta ? styles.textoAbierta : styles.textoEscuadra,
+                ]}
+              >
+                {esCanchaAbierta
+                  ? 'ABIERTA'
+                  : (item.equipoAdminNombre || 'EQUIPO')}
+              </Text>
+            </View>
           </View>
         </View>
 
         {/* Descripción táctica si existe */}
         {item.descripcion && (
           <View style={styles.descripcionBox}>
-            <Text style={styles.descripcionTexto}>{item.descripcion}</Text>
+            <Text style={styles.descripcionTexto} numberOfLines={2}>
+              {item.descripcion}
+            </Text>
           </View>
         )}
 
-        {/* Coordenadas GPS */}
+        {/* Coordenadas GPS y fotos adjuntas */}
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>COORDENADAS:</Text>
           <Text style={styles.metaValor}>
@@ -269,29 +530,24 @@ export const CanchasScreen = () => {
               ? `${Number(item.latitud).toFixed(4)}, ${Number(item.longitud).toFixed(4)}`
               : 'Referencial (búsqueda por nombre)'}
           </Text>
+          {item.fotos && item.fotos.length > 0 && (
+            <View style={styles.conFotosBadge}>
+              <MaterialCommunityIcons name="camera-outline" size={12} color={colors.primary} style={{ marginRight: 3 }} />
+              <Text style={styles.conFotosTxt}>{item.fotos.length} FOTO{item.fotos.length > 1 ? 'S' : ''}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Botones de Acción */}
+        {/* Botón de Acción Principal */}
         <View style={styles.accionesRow}>
           <TouchableOpacity
-            style={styles.btnMaps}
+            style={styles.btnVerCancha}
             activeOpacity={0.8}
-            onPress={() => handleAbrirGoogleMaps(item)}
+            onPress={() => setCanchaDetalleModal(item)}
           >
-            <MaterialCommunityIcons name="google-maps" size={15} color={colors.primary} style={{ marginRight: 4 }} />
-            <Text style={styles.txtMaps}>GOOGLE MAPS</Text>
+            <MaterialCommunityIcons name="eye-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.txtVerCancha}>VER CANCHA & FICHA TÁCTICA</Text>
           </TouchableOpacity>
-
-          {puedeEditar && (
-            <TouchableOpacity
-              style={styles.btnEditar}
-              activeOpacity={0.8}
-              onPress={() => abrirFormEditar(item)}
-            >
-              <MaterialCommunityIcons name="pencil-outline" size={15} color={colors.textSecondary} style={{ marginRight: 4 }} />
-              <Text style={styles.txtEditar}>EDITAR</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     );
@@ -320,23 +576,7 @@ export const CanchasScreen = () => {
       {/* Barra de Filtros de Región */}
       <View style={styles.filtrosBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtrosScroll}>
-          {/* Todas las Regiones */}
-          <TouchableOpacity
-            style={[styles.filtroChip, modoFiltro === 'TODAS' && styles.filtroChipActivo]}
-            onPress={seleccionarModoTodas}
-          >
-            <MaterialCommunityIcons
-              name="earth"
-              size={14}
-              color={modoFiltro === 'TODAS' ? '#fff' : colors.textSecondary}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[styles.filtroChipTxt, modoFiltro === 'TODAS' && styles.filtroChipTxtActivo]}>
-              TODAS
-            </Text>
-          </TouchableOpacity>
-
-          {/* Mi Región */}
+          {/* 1. Mi Región (Prioritaria) */}
           <TouchableOpacity
             style={[styles.filtroChip, modoFiltro === 'MI_REGION' && styles.filtroChipActivo]}
             onPress={seleccionarModoMiRegion}
@@ -352,7 +592,23 @@ export const CanchasScreen = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* Selector Múltiple de Regiones */}
+          {/* 2. Todas las Regiones */}
+          <TouchableOpacity
+            style={[styles.filtroChip, modoFiltro === 'TODAS' && styles.filtroChipActivo]}
+            onPress={seleccionarModoTodas}
+          >
+            <MaterialCommunityIcons
+              name="earth"
+              size={14}
+              color={modoFiltro === 'TODAS' ? '#fff' : colors.textSecondary}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.filtroChipTxt, modoFiltro === 'TODAS' && styles.filtroChipTxtActivo]}>
+              TODAS
+            </Text>
+          </TouchableOpacity>
+
+          {/* 3. Selector Múltiple / Filtro de Regiones */}
           <TouchableOpacity
             style={[
               styles.filtroChip,
@@ -372,7 +628,7 @@ export const CanchasScreen = () => {
                 modoFiltro === 'PERSONALIZADA' && styles.filtroChipTxtActivo,
               ]}
             >
-              FILTRAR REGIONES {regionesFiltro.length > 0 ? `(${regionesFiltro.length})` : ''}
+              FILTRAR REGIONES {regionesFiltro.length > 0 && modoFiltro === 'PERSONALIZADA' ? `(${regionesFiltro.length})` : ''}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -384,16 +640,96 @@ export const CanchasScreen = () => {
           <Text style={styles.filtroActivoTxt} numberOfLines={1}>
             Filtro: {regionesFiltro.join(', ')}
           </Text>
-          <TouchableOpacity onPress={seleccionarModoTodas}>
-            <Text style={styles.limpiarFiltroTxt}>✕ QUITAR</Text>
+          <TouchableOpacity
+            onPress={seleccionarModoTodas}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons name="close-circle-outline" size={13} color={colors.textSecondary} />
+            <Text style={styles.limpiarFiltroTxt}>QUITAR</Text>
           </TouchableOpacity>
         </View>
       )}
 
+      {/* Filtro de Modalidad de Cancha: TODAS | ABIERTAS | DE EQUIPO */}
+      <View style={styles.tipoCanchaFiltroBar}>
+        <TouchableOpacity
+          style={[
+            styles.tipoCanchaBtn,
+            filtroTipoCancha === 'TODAS' && styles.tipoCanchaBtnActivo,
+          ]}
+          onPress={() => setFiltroTipoCancha('TODAS')}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons
+            name="layers-outline"
+            size={13}
+            color={filtroTipoCancha === 'TODAS' ? colors.primary : colors.textMuted}
+            style={{ marginRight: 4 }}
+          />
+          <Text
+            style={[
+              styles.tipoCanchaTxt,
+              filtroTipoCancha === 'TODAS' && styles.tipoCanchaTxtActivo,
+            ]}
+          >
+            TODAS ({conteoTodas})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tipoCanchaBtn,
+            filtroTipoCancha === 'ABIERTAS' && styles.tipoCanchaBtnActivo,
+          ]}
+          onPress={() => setFiltroTipoCancha('ABIERTAS')}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons
+            name="earth"
+            size={13}
+            color={filtroTipoCancha === 'ABIERTAS' ? '#64B5F6' : colors.textMuted}
+            style={{ marginRight: 4 }}
+          />
+          <Text
+            style={[
+              styles.tipoCanchaTxt,
+              filtroTipoCancha === 'ABIERTAS' && styles.tipoCanchaTxtActivo,
+            ]}
+          >
+            ABIERTAS ({conteoAbiertas})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tipoCanchaBtn,
+            filtroTipoCancha === 'EQUIPO' && styles.tipoCanchaBtnActivo,
+          ]}
+          onPress={() => setFiltroTipoCancha('EQUIPO')}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons
+            name="shield-outline"
+            size={13}
+            color={filtroTipoCancha === 'EQUIPO' ? '#81C784' : colors.textMuted}
+            style={{ marginRight: 4 }}
+          />
+          <Text
+            style={[
+              styles.tipoCanchaTxt,
+              filtroTipoCancha === 'EQUIPO' && styles.tipoCanchaTxtActivo,
+            ]}
+          >
+            DE EQUIPO ({conteoEquipo})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Conteo de Canchas */}
       <View style={styles.conteoBar}>
         <Text style={styles.conteoTxt}>
-          {canchas.length} {canchas.length === 1 ? 'CAMPO DETECTADO' : 'CAMPOS DETECTADOS EN EL RADAR'}
+          {canchasFiltradas.length} {canchasFiltradas.length === 1 ? 'CAMPO DETECTADO' : 'CAMPOS DETECTADOS EN EL RADAR'}
         </Text>
       </View>
 
@@ -404,7 +740,7 @@ export const CanchasScreen = () => {
         </View>
       ) : (
         <FlatList
-          data={canchas}
+          data={canchasFiltradas}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderCancha}
           contentContainerStyle={styles.lista}
@@ -417,11 +753,28 @@ export const CanchasScreen = () => {
           }
           ListEmptyComponent={
             <View style={styles.vacio}>
-              <Text style={styles.iconoVacio}>🗺️</Text>
+              <MaterialCommunityIcons
+                name="map-search-outline"
+                size={48}
+                color={colors.textSecondary}
+                style={{ marginBottom: 12 }}
+              />
               <Text style={styles.tituloVacio}>Sin campos en esta selección</Text>
               <Text style={styles.subtituloVacio}>
-                No se encontraron canchas para el filtro aplicado. Puedes registrar una nueva cancha en esta zona con el botón superior.
+                {modoFiltro === 'MI_REGION'
+                  ? `No se encontraron canchas activas registradas en ${miRegion}. Puedes cambiar al filtro "TODAS" para ver campos en otras zonas o registrar uno nuevo.`
+                  : 'No se encontraron canchas activas para los filtros seleccionados (Región / Modalidad). Puedes registrar una nueva cancha con el botón superior.'}
               </Text>
+              {modoFiltro === 'MI_REGION' && (
+                <TouchableOpacity
+                  style={[styles.modalBtnPrimario, { marginTop: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+                  onPress={seleccionarModoTodas}
+                  activeOpacity={0.85}
+                >
+                  <MaterialCommunityIcons name="earth" size={16} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.modalTxtPrimario}>EXPLORAR TODAS LAS REGIONES</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
         />
@@ -461,7 +814,13 @@ export const CanchasScreen = () => {
                     >
                       {reg}
                     </Text>
-                    {seleccionada && <Text style={styles.modalRegionCheck}>✓</Text>}
+                    {seleccionada && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -505,6 +864,15 @@ export const CanchasScreen = () => {
                 ? 'Agrega una nueva cancha para organizar partidas y versus.'
                 : 'Modifica las características o geolocalización de la cancha.'}
             </Text>
+
+            {modoForm === 'CREAR' && (
+              <View style={styles.bannerRevisionInfo}>
+                <MaterialCommunityIcons name="clock-alert-outline" size={18} color={colors.warning} style={{ marginRight: 8 }} />
+                <Text style={styles.txtBannerRevisionInfo}>
+                  <Text style={{ fontWeight: 'bold' }}>Periodo de Revisión:</Text> Los campos nuevos pasan por verificación técnica de la comandancia. Quedará registrada en tu apartado de Sugerencias para que sigas su estado.
+                </Text>
+              </View>
+            )}
 
             <ScrollView style={{ marginBottom: 12 }}>
               {/* Nombre */}
@@ -577,7 +945,7 @@ export const CanchasScreen = () => {
                     setAsociarAEscuadra(false);
                   }}
                 >
-                  <Text style={styles.tipoCanchaIcono}>🌐</Text>
+                  <MaterialCommunityIcons name="earth" size={24} color={colors.primary} style={{ marginRight: 10 }} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.tipoCanchaTitulo}>CANCHA ABIERTA / COMUNITARIA</Text>
                     <Text style={styles.tipoCanchaDesc}>
@@ -594,10 +962,13 @@ export const CanchasScreen = () => {
                   ]}
                   onPress={() => {
                     if (!jugador?.equipoId) {
-                      Alert.alert(
-                        'Sin Escuadra',
-                        'Para registrar un campo oficial de escuadra debes pertenecer o liderar un equipo. Se guardará como cancha abierta.',
-                      );
+                      setAvisoTactico({
+                        visible: true,
+                        titulo: 'SIN ESCUADRÓN ACTIVO',
+                        mensaje: 'Para registrar un campo oficial de equipo debes pertenecer o liderar un escuadrón. Se mantendrá como cancha comunitaria.',
+                        tipo: 'advertencia',
+                        icono: 'shield-alert-outline',
+                      });
                       setEsAbiertaForm(true);
                       setAsociarAEscuadra(false);
                       return;
@@ -606,9 +977,9 @@ export const CanchasScreen = () => {
                     setEsAbiertaForm(false);
                   }}
                 >
-                  <Text style={styles.tipoCanchaIcono}>🛡️</Text>
+                  <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} style={{ marginRight: 10 }} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.tipoCanchaTitulo}>CAMPO OFICIAL DE MI ESCUADRA</Text>
+                    <Text style={styles.tipoCanchaTitulo}>CAMPO OFICIAL DE MI EQUIPO</Text>
                     <Text style={styles.tipoCanchaDesc}>
                       {jugador?.equipoId
                         ? 'Administrada exclusivamente por los miembros de tu equipo.'
@@ -629,13 +1000,55 @@ export const CanchasScreen = () => {
                 multiline
                 numberOfLines={3}
               />
+
+              {/* Apartado de Fotos y Evidencias */}
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>FOTOS Y EVIDENCIAS DEL CAMPO:</Text>
+              <Text style={styles.inputAyuda}>
+                Sube fotos de las zonas de juego, accesos o seguridad con una breve descripción para validar el campo con mayor rapidez:
+              </Text>
+
+              {fotosForm.map((foto, index) => (
+                <View key={index} style={styles.fotoItemCard}>
+                  <Image source={{ uri: foto.url }} style={styles.fotoMiniatura} />
+                  <View style={{ flex: 1, marginHorizontal: 8 }}>
+                    <TextInput
+                      style={styles.inputFotoDesc}
+                      value={foto.descripcion}
+                      onChangeText={(txt) => handleActualizarDescFoto(index, txt)}
+                      placeholder="Descripción (ej: Respawn Alfa / Bosque)"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.btnEliminarFoto}
+                    onPress={() => handleEliminarFoto(index)}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <TouchableOpacity style={styles.btnAgregarFoto} onPress={handleAgregarFoto}>
+                <MaterialCommunityIcons name="camera-plus" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.txtBtnAgregarFoto}>+ AÑADIR FOTO Y DESCRIPCIÓN</Text>
+              </TouchableOpacity>
             </ScrollView>
+
+            {errorFormModal ? (
+              <View style={styles.bannerErrorModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorModal}>{errorFormModal}</Text>
+              </View>
+            ) : null}
 
             {/* Botones del Formulario */}
             <View style={styles.modalFiltrosBotones}>
               <TouchableOpacity
                 style={styles.modalBtnSecundario}
-                onPress={() => setModalFormVisible(false)}
+                onPress={() => {
+                  setErrorFormModal(null);
+                  setModalFormVisible(false);
+                }}
                 disabled={guardandoForm}
               >
                 <Text style={styles.modalTxtSecundario}>CANCELAR</Text>
@@ -650,7 +1063,7 @@ export const CanchasScreen = () => {
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <Text style={styles.modalTxtPrimario}>
-                    {modoForm === 'CREAR' ? 'GUARDAR CAMPO 🎯' : 'ACTUALIZAR CAMPO'}
+                    {modoForm === 'CREAR' ? 'GUARDAR CAMPO' : 'ACTUALIZAR CAMPO'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -690,7 +1103,13 @@ export const CanchasScreen = () => {
                   >
                     {reg}
                   </Text>
-                  {reg === regionForm && <Text style={styles.modalRegionCheck}>✓</Text>}
+                  {reg === regionForm && (
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -703,6 +1122,129 @@ export const CanchasScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* MODAL: VER CANCHA (FICHA DETALLADA MODULARIZADA) */}
+      <ModalFichaCancha
+        visible={canchaDetalleModal !== null}
+        cancha={canchaDetalleModal}
+        esAdmin={Boolean(jugador?.esAdmin)}
+        onCerrar={() => setCanchaDetalleModal(null)}
+        onAbrirGoogleMaps={handleAbrirGoogleMaps}
+        onAbrirFormEditar={abrirFormEditar}
+        onAbrirModalSugerir={abrirModalSugerir}
+      />
+
+      {/* MODAL: SUGERIR CAMBIOS A UNA CANCHA (JUGADORES REGULARES) */}
+      <Modal
+        visible={modalSugerirVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalSugerirVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContenido, { maxHeight: '88%' }]}>
+            <Text style={styles.modalTitulo}>SUGERIR CAMBIOS DE CAMPO</Text>
+            <Text style={styles.modalSubtitulo}>
+              {canchaParaSugerir ? `Campo: ${canchaParaSugerir.nombre}` : 'Propuesta de actualización'}
+            </Text>
+
+            <View style={styles.bannerRevisionInfo}>
+              <MaterialCommunityIcons name="shield-check-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.txtBannerRevisionInfo}>
+                <Text style={{ fontWeight: 'bold' }}>Canal de Comandancia:</Text> Tus correcciones, indicaciones de accesos o nuevas fotografías serán revisadas por los administradores para actualizar la ficha oficial.
+              </Text>
+            </View>
+
+            <ScrollView style={{ marginBottom: 12 }}>
+              <Text style={styles.inputLabel}>DETALLE DE CAMBIOS SUGERIDOS (*):</Text>
+              <TextInput
+                style={[styles.inputModal, { minHeight: 90, textAlignVertical: 'top' }]}
+                value={textoPropuesta}
+                onChangeText={setTextoPropuesta}
+                placeholder="Indica qué datos corregir (coordenadas, horarios, precios, reglas del campo, accesos, etc.)..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                numberOfLines={4}
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: 14 }]}>FOTOS Y EVIDENCIAS NUEVAS:</Text>
+              <Text style={styles.inputAyuda}>
+                Puedes adjuntar fotografías actualizadas del campo con una breve descripción:
+              </Text>
+
+              {fotosSugerencia.map((foto, index) => (
+                <View key={index} style={styles.fotoItemCard}>
+                  <Image source={{ uri: foto.url }} style={styles.fotoMiniatura} />
+                  <View style={{ flex: 1, marginHorizontal: 8 }}>
+                    <TextInput
+                      style={styles.inputFotoDesc}
+                      value={foto.descripcion}
+                      onChangeText={(txt) => handleActualizarDescFotoSugerencia(index, txt)}
+                      placeholder="Descripción (ej: Nuevo acceso norte / Zona safe)"
+                      placeholderTextColor={colors.textMuted}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={styles.btnEliminarFoto}
+                    onPress={() => handleEliminarFotoSugerencia(index)}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              <TouchableOpacity style={styles.btnAgregarFoto} onPress={handleAgregarFotoSugerencia}>
+                <MaterialCommunityIcons name="camera-plus" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.txtBtnAgregarFoto}>+ ADJUNTAR FOTO ACTUALIZADA</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {errorSugerenciaModal ? (
+              <View style={styles.bannerErrorModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorModal}>{errorSugerenciaModal}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.modalFiltrosBotones}>
+              <TouchableOpacity
+                style={styles.modalBtnSecundario}
+                onPress={() => {
+                  setErrorSugerenciaModal(null);
+                  setModalSugerirVisible(false);
+                }}
+                disabled={enviandoSugerencia}
+              >
+                <Text style={styles.modalTxtSecundario}>CANCELAR</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalBtnPrimario}
+                onPress={handleEnviarSugerencia}
+                disabled={enviandoSugerencia}
+              >
+                {enviandoSugerencia ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalTxtPrimario}>ENVIAR A COMANDANCIA</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Táctico de Avisos y Notificaciones */}
+      <ModalConfirmacionTactico
+        visible={avisoTactico.visible}
+        titulo={avisoTactico.titulo}
+        mensaje={avisoTactico.mensaje}
+        textoConfirmar="ENTENDIDO"
+        tipo={avisoTactico.tipo}
+        icono={avisoTactico.icono}
+        soloAceptar
+        onConfirmar={() => setAvisoTactico((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -815,6 +1357,41 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
   },
+  tipoCanchaFiltroBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+    borderRadius: 8,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    gap: 4,
+  },
+  tipoCanchaBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    borderRadius: 6,
+  },
+  tipoCanchaBtnActivo: {
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  tipoCanchaTxt: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  tipoCanchaTxtActivo: {
+    color: colors.text,
+    fontWeight: '900',
+  },
   conteoBar: {
     paddingHorizontal: 18,
     paddingVertical: 8,
@@ -914,6 +1491,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 11,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   accionesRow: {
     flexDirection: 'row',
@@ -951,6 +1529,57 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontSize: 11,
     fontWeight: '800',
+  },
+  btnSugerir: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 107, 0, 0.12)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.4)',
+  },
+  txtSugerir: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  detalleBotonesRow: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  btnDetalleEditar: {
+    backgroundColor: colors.warning,
+    borderRadius: 10,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  txtBtnDetalleEditar: {
+    color: '#000',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  btnDetalleSugerir: {
+    backgroundColor: 'rgba(255, 107, 0, 0.15)',
+    borderRadius: 10,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  txtBtnDetalleSugerir: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   centroCargando: {
     flex: 1,
@@ -1144,5 +1773,255 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 2,
     lineHeight: 14,
+  },
+  badgeEnRevision: {
+    backgroundColor: 'rgba(214, 158, 46, 0.2)',
+    borderColor: colors.warning,
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  textoBadgeEnRevision: {
+    color: colors.warning,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  conFotosBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  conFotosTxt: {
+    color: colors.primary,
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  btnVerCancha: {
+    flex: 1,
+    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    borderRadius: 8,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  txtVerCancha: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  bannerRevisionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(214, 158, 46, 0.12)',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    marginBottom: 12,
+  },
+  txtBannerRevisionInfo: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 15,
+    flex: 1,
+  },
+  inputAyuda: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginBottom: 8,
+    lineHeight: 15,
+  },
+  fotoItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBg,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  fotoMiniatura: {
+    width: 52,
+    height: 52,
+    borderRadius: 6,
+    backgroundColor: '#000',
+  },
+  inputFotoDesc: {
+    color: colors.text,
+    fontSize: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: colors.card,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+  },
+  btnEliminarFoto: {
+    padding: 6,
+  },
+  btnAgregarFoto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    marginBottom: 12,
+  },
+  txtBtnAgregarFoto: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  detalleModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+  },
+  detalleEyebrow: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginBottom: 2,
+  },
+  detalleTitulo: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  btnCerrarModal: {
+    padding: 6,
+    backgroundColor: colors.inputBg,
+    borderRadius: 20,
+  },
+  detalleBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  detalleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  detalleSeccionBox: {
+    backgroundColor: colors.inputBg,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  detalleSeccionTitulo: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  detalleItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detalleItemTxt: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  detalleDescTxt: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  detalleFotoCard: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  detalleFotoImg: {
+    width: '100%',
+    height: 170,
+    backgroundColor: '#111',
+  },
+  detalleFotoDescBox: {
+    padding: 8,
+    backgroundColor: colors.card,
+  },
+  detalleFotoDescTxt: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sinFotosBox: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 6,
+  },
+  sinFotosTxt: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  btnAbrirMapsGrande: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  txtBtnAbrirMapsGrande: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  bannerErrorModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  txtErrorModal: {
+    color: colors.danger,
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
   },
 });

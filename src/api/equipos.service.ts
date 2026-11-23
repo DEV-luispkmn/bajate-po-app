@@ -42,6 +42,15 @@ export interface CrearEquipoDto {
   ciudad?: string;
 }
 
+export interface ModificarEquipoDto {
+  nombre?: string;
+  lema?: string;
+  descripcion?: string;
+  logoUrl?: string;
+  region?: string;
+  ciudad?: string;
+}
+
 export async function listarEquiposApi(filtros?: {
   region?: string;
   search?: string;
@@ -109,5 +118,72 @@ export async function asignarTLApi(nuevoTlId: number): Promise<Equipo> {
   return apiFetch<Equipo>('/equipos/mi-equipo/asignar-tl', {
     method: 'POST',
     body: JSON.stringify({ nuevoTlId }),
+  });
+}
+
+export async function modificarMiEquipoApi(dto: ModificarEquipoDto): Promise<Equipo> {
+  return apiFetch<Equipo>('/equipos/mi-equipo', {
+    method: 'PATCH',
+    body: JSON.stringify(dto),
+  });
+}
+
+export type EstadoPostulacion = 'PENDIENTE' | 'ACEPTADA' | 'RECHAZADA' | 'CANCELADA';
+
+export interface PostulacionEquipo {
+  id: number;
+  equipoId: number;
+  jugadorId: number;
+  mensaje?: string | null;
+  contacto?: string | null;
+  estado: EstadoPostulacion;
+  motivoRechazo?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  jugadorAlias?: string;
+  jugadorAvatarUrl?: string | null;
+  jugadorRango?: string | null;
+  jugadorRegion?: string | null;
+  jugadorCiudad?: string | null;
+  jugadorEmail?: string;
+  equipoNombre?: string;
+  equipoLogoUrl?: string | null;
+}
+
+export interface PostularEquipoDto {
+  contacto?: string;
+  mensaje?: string;
+}
+
+export async function postularEquipoApi(equipoId: number, dto: PostularEquipoDto): Promise<PostulacionEquipo> {
+  return apiFetch<PostulacionEquipo>(`/equipos/${equipoId}/postular`, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+export async function listarPostulacionesMiEquipoApi(estado?: EstadoPostulacion): Promise<PostulacionEquipo[]> {
+  const qs = estado ? `?estado=${estado}` : '';
+  return apiFetch<PostulacionEquipo[]>(`/equipos/mi-equipo/postulaciones${qs}`);
+}
+
+export async function responderPostulacionApi(
+  postulacionId: number,
+  decision: 'ACEPTAR' | 'RECHAZAR',
+  motivo?: string,
+): Promise<PostulacionEquipo> {
+  return apiFetch<PostulacionEquipo>(`/equipos/mi-equipo/postulaciones/${postulacionId}/responder`, {
+    method: 'POST',
+    body: JSON.stringify({ decision, motivo: motivo?.trim() }),
+  });
+}
+
+export async function obtenerMisPostulacionesApi(): Promise<PostulacionEquipo[]> {
+  return apiFetch<PostulacionEquipo[]>('/equipos/mis-postulaciones');
+}
+
+export async function cancelarPostulacionApi(id: number): Promise<PostulacionEquipo> {
+  return apiFetch<PostulacionEquipo>(`/equipos/mis-postulaciones/${id}`, {
+    method: 'DELETE',
   });
 }
