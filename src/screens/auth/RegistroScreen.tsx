@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -46,6 +45,28 @@ export const RegistroScreen = () => {
   const [password, setPassword] = useState('');
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [tecladoAbierto, setTecladoAbierto] = useState(false);
+  const [mensajeError, setMensajeError] = useState<string | null>(null);
+
+  const timerErrorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const mostrarError = (mensaje: string) => {
+    if (timerErrorRef.current) {
+      clearTimeout(timerErrorRef.current);
+    }
+    setMensajeError(mensaje);
+    timerErrorRef.current = setTimeout(() => {
+      setMensajeError(null);
+      timerErrorRef.current = null;
+    }, 10000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerErrorRef.current) {
+        clearTimeout(timerErrorRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -83,10 +104,7 @@ export const RegistroScreen = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permiso Requerido',
-          'Necesitamos acceso a tu galería para cargar tu foto táctica.',
-        );
+        mostrarError('Se requiere acceso a tu galería para cargar tu foto táctica.');
         return;
       }
 
@@ -107,14 +125,44 @@ export const RegistroScreen = () => {
         setAvatarUrl(base64Uri);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo seleccionar la imagen');
+      mostrarError(error.message || 'No se pudo seleccionar la imagen de la galería.');
+    }
+  };
+
+  // Captura de Foto con la Cámara del Celular
+  const handleTomarFotoCamara = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        mostrarError('Se requiere acceso a tu cámara para capturar tu foto táctica.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.3,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        let base64Uri = asset.uri;
+        if (asset.base64) {
+          base64Uri = `data:image/jpeg;base64,${asset.base64}`;
+        }
+        setAvatarUrl(base64Uri);
+      }
+    } catch (error: any) {
+      mostrarError(error.message || 'No se pudo capturar la foto con la cámara.');
     }
   };
 
   const toggleRol = (rolId: string) => {
     if (rolesSeleccionados.includes(rolId)) {
       if (rolesSeleccionados.length === 1) {
-        Alert.alert('Atención', 'Debes conservar al menos 1 rol táctico.');
+        mostrarError('Debes conservar al menos 1 rol táctico.');
         return;
       }
       setRolesSeleccionados(rolesSeleccionados.filter((r) => r !== rolId));
@@ -126,24 +174,22 @@ export const RegistroScreen = () => {
   // Avanzar a Paso 2
   const avanzarAlPaso2 = () => {
     if (!alias.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Atención', 'Por favor completa todos los campos del paso 1.');
+      mostrarError('Por favor completa todos los campos del paso 1.');
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Contraseña débil', 'La contraseña debe tener mínimo 8 caracteres.');
+      mostrarError('La contraseña debe tener mínimo 8 caracteres.');
       return;
     }
 
     const regex = /((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/;
     if (!regex.test(password)) {
-      Alert.alert(
-        'Contraseña inválida',
-        'La contraseña debe incluir mayúsculas, minúsculas y un número o símbolo.',
-      );
+      mostrarError('La contraseña debe incluir mayúsculas, minúsculas y un número o símbolo.');
       return;
     }
 
+    setMensajeError(null);
     setPaso(2);
   };
 
@@ -151,6 +197,7 @@ export const RegistroScreen = () => {
   const handleFinalizarRegistro = async () => {
     try {
       setCargando(true);
+      setMensajeError(null);
       await registro({
         alias: alias.trim(),
         email: email.trim(),
@@ -161,7 +208,7 @@ export const RegistroScreen = () => {
         roles: rolesSeleccionados.join(','),
       });
     } catch (error: any) {
-      Alert.alert('Error de Registro', error.message || 'No se pudo crear la cuenta.');
+      mostrarError(error.message || 'No se pudo crear la cuenta de operador.');
     } finally {
       setCargando(false);
     }
@@ -268,8 +315,23 @@ export const RegistroScreen = () => {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.botonPrincipal} onPress={avanzarAlPaso2}>
-              <Text style={styles.textoBoton}>CONTINUAR A FICHA TÁCTICA (PASO 2) ➔</Text>
+            {mensajeError && (
+              <View style={styles.contenedorError}>
+                <MaterialCommunityIcons
+                  name="alert-circle-outline"
+                  size={18}
+                  color="#EF4444"
+                  style={styles.iconoError}
+                />
+                <Text style={styles.textoError}>{mensajeError}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.botonPrincipal} onPress={avanzarAlPaso2} activeOpacity={0.8}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.textoBoton}>CONTINUAR A FICHA TÁCTICA (PASO 2)</Text>
+                <MaterialCommunityIcons name="arrow-right" size={16} color="#fff" />
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -299,13 +361,23 @@ export const RegistroScreen = () => {
               />
 
               <View style={styles.avatarOpciones}>
-                <TouchableOpacity
-                  style={styles.btnElegirFoto}
-                  onPress={handleElegirFotoGaleria}
-                >
-                  <MaterialCommunityIcons name="camera" size={16} color="#fff" />
-                  <Text style={styles.txtElegirFoto}>DESDE MI TELÉFONO</Text>
-                </TouchableOpacity>
+                <View style={styles.avatarBotonesRow}>
+                  <TouchableOpacity
+                    style={styles.btnElegirFoto}
+                    onPress={handleElegirFotoGaleria}
+                  >
+                    <MaterialCommunityIcons name="image" size={15} color="#fff" />
+                    <Text style={styles.txtElegirFoto}>GALERÍA</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.btnTomarFoto}
+                    onPress={handleTomarFotoCamara}
+                  >
+                    <MaterialCommunityIcons name="camera" size={15} color="#fff" />
+                    <Text style={styles.txtTomarFoto}>CÁMARA</Text>
+                  </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity
                   style={styles.btnPegarUrl}
@@ -314,7 +386,7 @@ export const RegistroScreen = () => {
                     setModalUrlVisible(true);
                   }}
                 >
-                  <MaterialCommunityIcons name="link-variant" size={16} color={colors.textSecondary} />
+                  <MaterialCommunityIcons name="link-variant" size={15} color={colors.textSecondary} />
                   <Text style={styles.txtPegarUrl}>INGRESAR URL</Text>
                 </TouchableOpacity>
               </View>
@@ -366,11 +438,31 @@ export const RegistroScreen = () => {
                     <Text style={[styles.rolLabel, activo && styles.rolLabelActivo]}>
                       {rol.label}
                     </Text>
-                    {activo && <Text style={styles.rolCheck}>✓</Text>}
+                    {activo && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={14}
+                        color="#fff"
+                        style={{ marginLeft: 4 }}
+                      />
+                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
+
+            {/* Mensaje de error táctico inline */}
+            {mensajeError && (
+              <View style={[styles.contenedorError, { marginBottom: 14 }]}>
+                <MaterialCommunityIcons
+                  name="alert-circle-outline"
+                  size={18}
+                  color="#EF4444"
+                  style={styles.iconoError}
+                />
+                <Text style={styles.textoError}>{mensajeError}</Text>
+              </View>
+            )}
 
             {/* Botones de Acción */}
             <View style={styles.botonesAccionRow}>
@@ -378,19 +470,27 @@ export const RegistroScreen = () => {
                 style={styles.btnVolverPaso1}
                 onPress={() => setPaso(1)}
                 disabled={cargando}
+                activeOpacity={0.8}
               >
-                <Text style={styles.txtVolverPaso1}>⬅ PASO 1</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="arrow-left" size={14} color={colors.textSecondary} />
+                  <Text style={styles.txtVolverPaso1}>PASO 1</Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.botonPrincipal, { flex: 2 }, cargando && styles.botonDeshabilitado]}
                 onPress={handleFinalizarRegistro}
                 disabled={cargando}
+                activeOpacity={0.8}
               >
                 {cargando ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.textoBoton}>COMPLETAR REGISTRO 🎯</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <MaterialCommunityIcons name="account-plus" size={16} color="#fff" />
+                    <Text style={styles.textoBoton}>COMPLETAR REGISTRO</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -428,7 +528,13 @@ export const RegistroScreen = () => {
                     >
                       {reg}
                     </Text>
-                    {reg === region && <Text style={styles.modalRegionCheck}>✓</Text>}
+                    {reg === region && (
+                      <MaterialCommunityIcons
+                        name="check"
+                        size={16}
+                        color={colors.primary}
+                      />
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -654,16 +760,37 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8,
   },
+  avatarBotonesRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   btnElegirFoto: {
+    flex: 1,
     backgroundColor: colors.primary,
     borderRadius: 8,
     paddingVertical: 8,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   txtElegirFoto: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  btnTomarFoto: {
+    flex: 1,
+    backgroundColor: '#2d6a4f',
+    borderRadius: 8,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+  },
+  txtTomarFoto: {
     color: '#fff',
     fontSize: 11,
     fontWeight: '800',
@@ -853,5 +980,29 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '800',
+  },
+  contenedorError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  iconoError: {
+    marginRight: 8,
+    alignSelf: 'flex-start',
+    marginTop: 1,
+  },
+  textoError: {
+    flex: 1,
+    color: '#F87171',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
   },
 });

@@ -1,8 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -11,16 +12,21 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import {
   listarEventosApi,
-  buscarEventoPorCodigoApi,
   Evento,
 } from '../../api/eventos.service';
+import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
+import { ModalNotificaciones } from '../../components/ModalNotificaciones';
+import { ModalCodigoTactico } from '../../components/ModalCodigoTactico';
+import { listarNotificacionesApi } from '../../api/notificaciones.service';
+import { limpiarRecordatoriosEventosInactivos } from '../../services/deviceNotifications.service';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { obtenerEstiloFama } from '../../utils/fama.util';
 import type { NavigationProp } from '../../navigation/types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
@@ -32,45 +38,47 @@ export const HomeScreen = () => {
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
 
-  // Pestaña activa del Feed: 'CERCA' (Disponibles cerca de ti) | 'INSCRITOS' (Tus activas) | 'HISTORIAL' (Terminadas/Canceladas)
-  const [tabFeed, setTabFeed] = useState<'CERCA' | 'INSCRITOS' | 'HISTORIAL'>('CERCA');
-  // Explorar eventos de otras regiones si en la mía no hay o quiero ver más
+  // Notificaciones tácticas
+  const [modalNotificacionesVisible, setModalNotificacionesVisible] = useState(false);
+  const [conteoNoLeidas, setConteoNoLeidas] = useState(0);
+  const { suscribirNotificaciones } = useSocket();
+
+  useEffect(() => {
+    if (!suscribirNotificaciones) return;
+    const desuscribir = suscribirNotificaciones(() => {
+      setConteoNoLeidas((prev) => prev + 1);
+    });
+    return desuscribir;
+  }, [suscribirNotificaciones]);
+
+  // Pestaña activa del Feed: 'CERCA' (Cercanos disponibles) | 'INSCRITOS' (Eventos en los que estás inscrito)
+  const [tabFeed, setTabFeed] = useState<'CERCA' | 'INSCRITOS'>('CERCA');
+  // Explorar todos los eventos / otras regiones
   const [explorarOtrasRegiones, setExplorarOtrasRegiones] = useState(false);
+  // Filtros tácticos de exploración
+  const [filtroRegion, setFiltroRegion] = useState<string>('TODAS');
+  const [filtroTipo, setFiltroTipo] = useState<string>('TODOS');
+  const [modalSelectorRegionVisible, setModalSelectorRegionVisible] = useState(false);
 
   // Modal para ingresar código táctico de 6 caracteres
   const [modalCodigoVisible, setModalCodigoVisible] = useState(false);
-  const [codigoManual, setCodigoManual] = useState('');
-  const [buscandoCodigo, setBuscandoCodigo] = useState(false);
-
 
   const miId = jugador?.id;
   const miRegion = jugador?.region || 'Región Metropolitana';
-
-  const handleBuscarPorCodigo = async () => {
-    if (!codigoManual.trim()) {
-      Alert.alert('Atención', 'Por favor ingresa los 6 caracteres del código.');
-      return;
-    }
-    setBuscandoCodigo(true);
-    try {
-      const res = await buscarEventoPorCodigoApi(codigoManual.trim().toUpperCase());
-      setModalCodigoVisible(false);
-      setCodigoManual('');
-      navigation.navigate('EventoDetalle', { eventoId: res.evento.id });
-    } catch (error: any) {
-      Alert.alert(
-        'Código no encontrado',
-        error.message || 'No existe ninguna operación con este código de invitación táctico.',
-      );
-    } finally {
-      setBuscandoCodigo(false);
-    }
-  };
+  const estiloFama = obtenerEstiloFama(jugador?.fama);
 
   const cargarEventos = async () => {
     try {
-      const data = await listarEventosApi();
+      const [data, notifRes] = await Promise.all([
+        listarEventosApi(undefined, jugador?.id),
+        listarNotificacionesApi().catch(() => ({ notificaciones: [], noLeidas: 0 })),
+      ]);
       setEventos(data);
+      if (notifRes && typeof notifRes.noLeidas === 'number') {
+        setConteoNoLeidas(notifRes.noLeidas);
+      }
+      // Cancelar automáticamente recordatorios de 1 día o 30 min para eventos finalizados o cancelados
+      limpiarRecordatoriosEventosInactivos(data).catch(() => null);
     } catch {
       // Error silencioso
     } finally {
@@ -82,7 +90,7 @@ export const HomeScreen = () => {
   useFocusEffect(
     useCallback(() => {
       cargarEventos();
-    }, [jugador?.region]),
+    }, [jugador?.region, jugador?.id, jugador?.equipoId]),
   );
 
   const onRefresh = () => {
@@ -97,22 +105,36 @@ export const HomeScreen = () => {
       (e.jugadoresInscritos?.some((j) => j.jugadorId === miId) || e.organizadorId === miId),
   );
 
-  // 2. Historial de eventos (concluidos o cancelados) donde participó o fue organizador
-  const eventosHistorial = eventos.filter(
-    (e) =>
-      (e.estado === 'FINALIZADO' || e.estado === 'CANCELADO') &&
-      (e.jugadoresInscritos?.some((j) => j.jugadorId === miId) || e.organizadorId === miId),
-  );
+  // 2. Eventos disponibles activos donde NO está inscrito ni organiza
+  const eventosDisponibles = eventos.filter((e) => {
+    // Solo eventos programados o en curso
+    if (e.estado !== 'PROGRAMADO' && e.estado !== 'EN_CURSO') return false;
 
-  // 3. Eventos disponibles activos donde NO está inscrito ni organiza
-  const eventosDisponibles = eventos.filter(
-    (e) =>
-      (e.estado === 'PROGRAMADO' || e.estado === 'EN_CURSO') &&
-      !e.jugadoresInscritos?.some((j) => j.jugadorId === miId) &&
-      e.organizadorId !== miId,
-  );
+    // Si el operador ya está inscrito o es organizador, va a "INSCRITO EN", no a disponibles
+    if (e.jugadoresInscritos?.some((j) => j.jugadorId === miId) || e.organizadorId === miId) {
+      return false;
+    }
 
-  // 4. Eventos disponibles en la región del usuario
+    // Regla: Si un evento ya cerró sus inscripciones (o ya inició y cerró inscripciones), no se muestra en cercanos
+    if (e.inscripcionesAbiertas === false) {
+      return false;
+    }
+
+    // Regla: Los eventos VERSUS solo son visibles para miembros de los equipos participantes (o invitados directos por código)
+    if (e.tipo === 'VERSUS') {
+      const miEquipoId = jugador?.equipoId;
+      const esMiembroEquipoVersus = Boolean(
+        miEquipoId && (e.equipoAId === miEquipoId || e.equipoBId === miEquipoId),
+      );
+      if (!esMiembroEquipoVersus) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  // 3. Eventos disponibles en la región del usuario (modo normal Cercanos)
   const eventosCerca = eventosDisponibles.filter((e) => {
     if (!e.region) return true;
     if (!miRegion) return true;
@@ -123,14 +145,30 @@ export const HomeScreen = () => {
     );
   });
 
+  // 4. Eventos al explorar todos los eventos con filtros de Región y Tipo
+  const eventosExploracionFiltrados = eventosDisponibles.filter((e) => {
+    if (filtroRegion !== 'TODAS') {
+      if (!e.region) return false;
+      const coincide =
+        e.region.trim().toLowerCase() === filtroRegion.trim().toLowerCase() ||
+        e.region.toLowerCase().includes(filtroRegion.toLowerCase()) ||
+        filtroRegion.toLowerCase().includes(e.region.toLowerCase());
+      if (!coincide) return false;
+    }
+
+    if (filtroTipo !== 'TODOS') {
+      if (e.tipo !== filtroTipo) return false;
+    }
+
+    return true;
+  });
+
   // Lista final a renderizar según pestaña y alcance geográfico
   const eventosAMostrar =
     tabFeed === 'INSCRITOS'
       ? eventosInscritosActivos
-      : tabFeed === 'HISTORIAL'
-      ? eventosHistorial
       : explorarOtrasRegiones
-      ? eventosDisponibles
+      ? eventosExploracionFiltrados
       : eventosCerca;
 
   const renderEvento = ({ item }: { item: Evento }) => {
@@ -145,9 +183,24 @@ export const HomeScreen = () => {
     const miInscripcion = item.jugadoresInscritos?.find((j) => j.jugadorId === miId);
     const estaInscrito = Boolean(miInscripcion);
     const esTerminadoOCancelado = item.estado === 'FINALIZADO' || item.estado === 'CANCELADO';
+    const bordeLateralEstado = esTerminadoOCancelado
+      ? item.estado === 'CANCELADO'
+        ? 'rgba(239, 68, 68, 0.4)'
+        : '#4B5563'
+      : item.estado === 'EN_CURSO'
+      ? colors.danger
+      : estaInscrito
+      ? colors.success
+      : colors.primary;
 
     return (
-      <View style={[styles.card, estaInscrito && !esTerminadoOCancelado && styles.cardInscrito]}>
+      <View
+        style={[
+          styles.card,
+          estaInscrito && !esTerminadoOCancelado && styles.cardInscrito,
+          { borderLeftWidth: 4, borderLeftColor: bordeLateralEstado },
+        ]}
+      >
         {/* Cabecera de la tarjeta: Tipo, Estado y Badge de Inscrito */}
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
@@ -195,6 +248,27 @@ export const HomeScreen = () => {
         {/* Título de la partida */}
         <Text style={styles.tituloEvento}>{item.titulo}</Text>
 
+        {/* Duelo entre escuadras para VERSUS */}
+        {item.tipo === 'VERSUS' && item.bandos && item.bandos.length >= 2 && (
+          <View style={styles.versusDueloRow}>
+            <View style={styles.versusEquipoBox}>
+              <MaterialCommunityIcons name="shield" size={13} color={colors.success} style={{ marginRight: 3 }} />
+              <Text style={styles.versusDueloEquipoA} numberOfLines={1}>
+                {item.bandos[0].nombre}
+              </Text>
+            </View>
+            <View style={styles.versusDueloVsBox}>
+              <Text style={styles.versusDueloVsTxt}>VS</Text>
+            </View>
+            <View style={[styles.versusEquipoBox, { justifyContent: 'flex-end' }]}>
+              <Text style={styles.versusDueloEquipoB} numberOfLines={1}>
+                {item.bandos[1].nombre}
+              </Text>
+              <MaterialCommunityIcons name="sword-cross" size={13} color={colors.blueTeam} style={{ marginLeft: 3 }} />
+            </View>
+          </View>
+        )}
+
         {/* Motivo de cancelación si aplica */}
         {item.estado === 'CANCELADO' && item.motivoCancelacion && (
           <View style={styles.motivoCancelacionBoxMini}>
@@ -241,20 +315,7 @@ export const HomeScreen = () => {
           activeOpacity={0.8}
           onPress={() => {
             if (item.privacidad === 'CERRADO' && !estaInscrito && item.organizadorId !== miId && !esTerminadoOCancelado) {
-              Alert.alert(
-                '🔒 OPERACIÓN PRIVADA',
-                `"${item.titulo}" es una partida privada restringida.\nPara ingresar necesitas el código de invitación táctico de 6 caracteres.`,
-                [
-                  { text: 'VOLVER', style: 'cancel' },
-                  {
-                    text: 'INGRESAR CÓDIGO',
-                    onPress: () => {
-                      setCodigoManual('');
-                      setModalCodigoVisible(true);
-                    },
-                  },
-                ],
-              );
+              setModalCodigoVisible(true);
               return;
             }
             navigation.navigate('EventoDetalle', { eventoId: item.id });
@@ -308,16 +369,38 @@ export const HomeScreen = () => {
       <View style={styles.topBar}>
         <View>
           <Text style={styles.saludoOperador}>OPERADOR EN LÍNEA</Text>
-          <Text style={styles.aliasOperador}>{jugador?.alias?.toUpperCase() || 'SOLDADO'}</Text>
+          <Text style={[styles.aliasOperador, { color: estiloFama.colorTexto }]}>
+            {jugador?.alias?.toUpperCase() || 'SOLDADO'}
+          </Text>
         </View>
-        <TouchableOpacity
-          style={styles.botonAjustes}
-          onPress={() => navigation.navigate('Ajustes')}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="cog-outline" size={16} color={colors.primary} style={{ marginRight: 4 }} />
-          <Text style={styles.textoAjustes}>AJUSTES</Text>
-        </TouchableOpacity>
+        <View style={styles.topBarRight}>
+          <TouchableOpacity
+            style={styles.btnCampanaTopBar}
+            onPress={() => setModalNotificacionesVisible(true)}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons
+              name={conteoNoLeidas > 0 ? 'bell-badge' : 'bell-outline'}
+              size={22}
+              color={conteoNoLeidas > 0 ? colors.primary : colors.textSecondary}
+            />
+            {conteoNoLeidas > 0 && (
+              <View style={styles.badgeCampanaContador}>
+                <Text style={styles.txtBadgeCampanaContador}>
+                  {conteoNoLeidas > 9 ? '9+' : conteoNoLeidas}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.botonAjustes}
+            onPress={() => navigation.navigate('Ajustes')}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="cog-outline" size={16} color={colors.primary} style={{ marginRight: 4 }} />
+            <Text style={styles.textoAjustes}>AJUSTES</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 2. Quick Actions (Botones Grandes Tácticos) */}
@@ -339,7 +422,7 @@ export const HomeScreen = () => {
         >
           <MaterialCommunityIcons name="calendar-plus" size={28} color={colors.secondary} style={{ marginBottom: 6 }} />
           <Text style={styles.tituloQuickAction}>CREAR EVENTO</Text>
-          <Text style={styles.subtituloQuickAction}>PICHANGA / TORNEO</Text>
+          <Text style={styles.subtituloQuickAction}>PARTIDA / MASIVO</Text>
         </TouchableOpacity>
       </View>
 
@@ -358,7 +441,12 @@ export const HomeScreen = () => {
         <MaterialCommunityIcons name="chevron-right" size={16} color={colors.textSecondary} />
       </TouchableOpacity>
 
-      {/* 3. Pestañas Segmentadas Tácticas: "Disponibles Cerca" vs "Mis Inscripciones" vs "Historial" */}
+      {/* Título de Sección: EVENTOS */}
+      <View style={styles.seccionHeaderEventos}>
+        <Text style={styles.seccionTituloEventos}>EVENTOS</Text>
+      </View>
+
+      {/* 3. Pestañas Segmentadas Tácticas: "Cercanos" vs "Inscrito en" */}
       <View style={styles.tabsSegmentedContainer}>
         <TouchableOpacity
           style={[styles.tabSegmented, tabFeed === 'CERCA' && styles.tabSegmentedActivo]}
@@ -367,12 +455,12 @@ export const HomeScreen = () => {
         >
           <MaterialCommunityIcons
             name="crosshairs-gps"
-            size={14}
+            size={15}
             color={tabFeed === 'CERCA' ? colors.primary : colors.textMuted}
-            style={{ marginRight: 4 }}
+            style={{ marginRight: 6 }}
           />
           <Text style={[styles.tabSegmentedTxt, tabFeed === 'CERCA' && styles.tabSegmentedTxtActivo]}>
-            CERCA ({eventosCerca.length})
+            CERCANOS ({eventosCerca.length})
           </Text>
         </TouchableOpacity>
 
@@ -383,57 +471,110 @@ export const HomeScreen = () => {
         >
           <MaterialCommunityIcons
             name="shield-check"
-            size={14}
+            size={15}
             color={tabFeed === 'INSCRITOS' ? colors.success : colors.textMuted}
-            style={{ marginRight: 4 }}
+            style={{ marginRight: 6 }}
           />
           <Text style={[styles.tabSegmentedTxt, tabFeed === 'INSCRITOS' && styles.tabSegmentedTxtActivoInscritos]}>
-            ACTIVAS ({eventosInscritosActivos.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabSegmented, tabFeed === 'HISTORIAL' && styles.tabSegmentedActivoHistorial]}
-          onPress={() => setTabFeed('HISTORIAL')}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons
-            name="history"
-            size={14}
-            color={tabFeed === 'HISTORIAL' ? '#F59E0B' : colors.textMuted}
-            style={{ marginRight: 4 }}
-          />
-          <Text style={[styles.tabSegmentedTxt, tabFeed === 'HISTORIAL' && styles.tabSegmentedTxtActivoHistorial]}>
-            HISTORIAL ({eventosHistorial.length})
+            INSCRITO EN ({eventosInscritosActivos.length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* 4. Barra de Alcance Geográfico (Solo en pestaña CERCA) */}
+      {/* 4. Barra de Alcance Geográfico y Filtros (Solo en pestaña CERCANOS) */}
       {tabFeed === 'CERCA' && (
-        <View style={styles.alcanceBar}>
-          <View style={styles.alcanceInfo}>
-            <MaterialCommunityIcons
-              name={explorarOtrasRegiones ? 'earth' : 'map-marker'}
-              size={15}
-              color={colors.primary}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={styles.alcanceTxt} numberOfLines={1}>
-              {explorarOtrasRegiones
-                ? `Explorando todo Chile (${eventosDisponibles.length})`
-                : `${miRegion}`}
-            </Text>
+        <View style={styles.alcanceYFiltrosContainer}>
+          <View style={styles.alcanceBar}>
+            <View style={styles.alcanceInfo}>
+              <MaterialCommunityIcons
+                name={explorarOtrasRegiones ? 'earth' : 'map-marker'}
+                size={16}
+                color={colors.primary}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.alcanceTxt} numberOfLines={1}>
+                {explorarOtrasRegiones
+                  ? filtroRegion === 'TODAS'
+                    ? `Todos los eventos (${eventosExploracionFiltrados.length})`
+                    : `${filtroRegion} (${eventosExploracionFiltrados.length})`
+                  : `${miRegion} (${eventosCerca.length})`}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.btnToggleAlcance}
+              onPress={() => {
+                const nuevo = !explorarOtrasRegiones;
+                setExplorarOtrasRegiones(nuevo);
+                if (!nuevo) {
+                  setFiltroRegion('TODAS');
+                  setFiltroTipo('TODOS');
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={styles.txtToggleAlcance}>
+                  {explorarOtrasRegiones ? 'SOLO MI REGIÓN' : 'VER TODOS'}
+                </Text>
+                <MaterialCommunityIcons
+                  name={explorarOtrasRegiones ? 'filter-variant' : 'arrow-right'}
+                  size={12}
+                  color={colors.primary}
+                />
+              </View>
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.btnToggleAlcance}
-            onPress={() => setExplorarOtrasRegiones(!explorarOtrasRegiones)}
-          >
-            <Text style={styles.txtToggleAlcance}>
-              {explorarOtrasRegiones ? 'SOLO MI REGIÓN' : 'EXPLORAR MÁS EVENTOS ➔'}
-            </Text>
-          </TouchableOpacity>
+          {/* Filtros avanzados desplegados al presionar para ver todos los eventos */}
+          {explorarOtrasRegiones && (
+            <View style={styles.filtrosAvanzadosBox}>
+              {/* Selector de Región */}
+              <TouchableOpacity
+                style={styles.btnSelectorRegionFiltro}
+                onPress={() => setModalSelectorRegionVisible(true)}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                  <MaterialCommunityIcons name="map-marker-radius" size={16} color={colors.primary} />
+                  <Text style={styles.txtSelectorRegionFiltroLabel}>Región:</Text>
+                  <Text style={styles.txtSelectorRegionFiltroValor} numberOfLines={1}>
+                    {filtroRegion === 'TODAS' ? 'Todas las regiones' : filtroRegion}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-down" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              {/* Selector de Tipo de Evento */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.scrollTiposFiltro}
+              >
+                {[
+                  { id: 'TODOS', label: 'Todos' },
+                  { id: 'PICHANGA', label: 'Partidas' },
+                  { id: 'EVENTO_MASIVO', label: 'Masivos' },
+                  { id: 'VERSUS', label: 'Versus' },
+                  { id: 'TORNEO', label: 'Torneos' },
+                ].map((tipo) => {
+                  const activo = filtroTipo === tipo.id;
+                  return (
+                    <TouchableOpacity
+                      key={tipo.id}
+                      style={[styles.chipTipoFiltro, activo && styles.chipTipoFiltroActivo]}
+                      onPress={() => setFiltroTipo(tipo.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.txtChipTipoFiltro, activo && styles.txtChipTipoFiltroActivo]}>
+                        {tipo.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
         </View>
       )}
 
@@ -476,19 +617,6 @@ export const HomeScreen = () => {
                   <Text style={styles.txtIrAExplorar}>EXPLORAR OPERACIONES DISPONIBLES</Text>
                 </TouchableOpacity>
               </View>
-            ) : tabFeed === 'HISTORIAL' ? (
-              <View style={styles.vacio}>
-                <MaterialCommunityIcons
-                  name="history"
-                  size={52}
-                  color={colors.textMuted}
-                  style={{ marginBottom: 12 }}
-                />
-                <Text style={styles.tituloVacio}>Sin historial de operaciones</Text>
-                <Text style={styles.subtituloVacio}>
-                  Las partidas y eventos concluidos o cancelados en los que hayas participado u organizado quedarán archivados aquí.
-                </Text>
-              </View>
             ) : (
               <View style={styles.vacio}>
                 <MaterialCommunityIcons
@@ -499,23 +627,27 @@ export const HomeScreen = () => {
                 />
                 <Text style={styles.tituloVacio}>
                   {explorarOtrasRegiones
-                    ? 'No hay eventos disponibles en Chile'
+                    ? 'No hay eventos disponibles con estos filtros'
                     : `Sin operaciones cerca en ${miRegion}`}
                 </Text>
                 <Text style={styles.subtituloVacio}>
                   {explorarOtrasRegiones
-                    ? 'Sé el primero en convocar una partida con el botón "Crear Evento".'
-                    : 'Aún no hay partidas creadas en tu región. Puedes convocar una o explorar eventos en otras regiones de Chile.'}
+                    ? 'Prueba seleccionando otra región o cambiando el tipo de evento en los filtros superiores.'
+                    : 'Aún no hay partidas creadas en tu región. Puedes convocar una o presionar "Ver todos" para buscar eventos.'}
                 </Text>
 
                 {!explorarOtrasRegiones && eventosDisponibles.length > 0 && (
                   <TouchableOpacity
                     style={styles.btnIrAExplorar}
                     onPress={() => setExplorarOtrasRegiones(true)}
+                    activeOpacity={0.8}
                   >
-                    <Text style={styles.txtIrAExplorar}>
-                      VER {eventosDisponibles.length} EVENTOS EN OTRAS REGIONES ➔
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.txtIrAExplorar, { fontVariant: ['tabular-nums'] }]}>
+                        VER TODOS LOS EVENTOS ({eventosDisponibles.length})
+                      </Text>
+                      <MaterialCommunityIcons name="arrow-right" size={14} color={colors.primary} />
+                    </View>
                   </TouchableOpacity>
                 )}
               </View>
@@ -525,67 +657,102 @@ export const HomeScreen = () => {
       )}
 
       {/* Modal para ingresar Código Táctico de 6 dígitos/letras */}
-      <Modal
+      <ModalCodigoTactico
         visible={modalCodigoVisible}
+        onClose={() => setModalCodigoVisible(false)}
+        onSuccess={(eventoId) => {
+          setModalCodigoVisible(false);
+          navigation.navigate('EventoDetalle', { eventoId });
+        }}
+      />
+
+      {/* Modal Notificaciones Táctico */}
+      <ModalNotificaciones
+        visible={modalNotificacionesVisible}
+        onClose={() => setModalNotificacionesVisible(false)}
+        onActualizarConteo={setConteoNoLeidas}
+      />
+
+      {/* Modal para seleccionar Región en el filtro de exploración */}
+      <Modal
+        visible={modalSelectorRegionVisible}
         transparent
-        animationType="fade"
-        onRequestClose={() => setModalCodigoVisible(false)}
+        animationType="slide"
+        onRequestClose={() => setModalSelectorRegionVisible(false)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <MaterialCommunityIcons name="form-textbox-password" size={24} color={colors.primary} />
-              <Text style={styles.modalTitulo}>INGRESAR CÓDIGO TÁCTICO</Text>
-            </View>
-
-            <Text style={styles.modalDescripcion}>
-              Ingresa el código alfanumérico de 6 caracteres generado para esta partida (ej: MAS123 o FUEB12).
-            </Text>
-
-            <TextInput
-              style={styles.inputCodigo}
-              placeholder="EJ: MAS123"
-              placeholderTextColor={colors.textMuted}
-              value={codigoManual}
-              onChangeText={(t) => setCodigoManual(t.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-              maxLength={6}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              returnKeyType="go"
-              onSubmitEditing={handleBuscarPorCodigo}
-            />
-
-            <View style={styles.modalAcciones}>
-              <TouchableOpacity
-                style={styles.btnCancelarModal}
-                onPress={() => {
-                  setModalCodigoVisible(false);
-                  setCodigoManual('');
-                }}
-              >
-                <Text style={styles.txtCancelarModal}>CANCELAR</Text>
-              </TouchableOpacity>
-
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '75%' }]}>
+            <Text style={styles.modalTitulo}>FILTRAR POR REGIÓN</Text>
+            <ScrollView style={{ marginVertical: 10 }}>
               <TouchableOpacity
                 style={[
-                  styles.btnConfirmarModal,
-                  (!codigoManual.trim() || buscandoCodigo) && styles.btnDeshabilitado,
+                  styles.modalRegionItem,
+                  filtroRegion === 'TODAS' && styles.modalRegionItemActivo,
                 ]}
-                onPress={handleBuscarPorCodigo}
-                disabled={!codigoManual.trim() || buscandoCodigo}
+                onPress={() => {
+                  setFiltroRegion('TODAS');
+                  setModalSelectorRegionVisible(false);
+                }}
               >
-                {buscandoCodigo ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.txtConfirmarModal}>LOCALIZAR</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MaterialCommunityIcons name="earth" size={16} color={colors.primary} />
+                  <Text
+                    style={[
+                      styles.modalRegionTexto,
+                      filtroRegion === 'TODAS' && styles.modalRegionTextoActivo,
+                    ]}
+                  >
+                    Todas las regiones de Chile
+                  </Text>
+                </View>
+                {filtroRegion === 'TODAS' && (
+                  <MaterialCommunityIcons
+                    name="check"
+                    size={16}
+                    color={colors.primary}
+                  />
                 )}
               </TouchableOpacity>
-            </View>
+
+              {REGIONES_CHILE.map((reg) => (
+                <TouchableOpacity
+                  key={reg}
+                  style={[
+                    styles.modalRegionItem,
+                    reg === filtroRegion && styles.modalRegionItemActivo,
+                  ]}
+                  onPress={() => {
+                    setFiltroRegion(reg);
+                    setModalSelectorRegionVisible(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modalRegionTexto,
+                      reg === filtroRegion && styles.modalRegionTextoActivo,
+                    ]}
+                  >
+                    {reg}
+                  </Text>
+                  {reg === filtroRegion && (
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.btnCancelarModal}
+              onPress={() => setModalSelectorRegionVisible(false)}
+            >
+              <Text style={styles.txtCancelarModal}>CERRAR</Text>
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
@@ -605,6 +772,41 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  btnCampanaTopBar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  badgeCampanaContador: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: colors.primary,
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.background,
+  },
+  txtBadgeCampanaContador: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '900',
   },
   saludoOperador: {
     fontSize: 11,
@@ -676,10 +878,21 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
+  seccionHeaderEventos: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 2,
+  },
+  seccionTituloEventos: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
   tabsSegmentedContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 8,
     gap: 8,
   },
   tabSegmented: {
@@ -701,13 +914,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(56, 161, 105, 0.15)',
     borderColor: colors.success,
   },
-  tabSegmentedActivoHistorial: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: '#F59E0B',
-  },
   tabSegmentedTxt: {
     color: colors.textMuted,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -717,8 +926,10 @@ const styles = StyleSheet.create({
   tabSegmentedTxtActivoInscritos: {
     color: colors.success,
   },
-  tabSegmentedTxtActivoHistorial: {
-    color: '#F59E0B',
+  alcanceYFiltrosContainer: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+    marginTop: 4,
   },
   alcanceBar: {
     flexDirection: 'row',
@@ -726,9 +937,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 18,
     paddingVertical: 10,
-    marginTop: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
   },
   alcanceInfo: {
     flexDirection: 'row',
@@ -742,16 +950,98 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   btnToggleAlcance: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderRadius: 6,
-    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(224, 109, 40, 0.3)',
   },
   txtToggleAlcance: {
     color: colors.primary,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  filtrosAvanzadosBox: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  btnSelectorRegionFiltro: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.inputBg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  txtSelectorRegionFiltroLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    marginRight: 4,
+  },
+  txtSelectorRegionFiltroValor: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+    flex: 1,
+  },
+  scrollTiposFiltro: {
+    gap: 6,
+    paddingVertical: 2,
+  },
+  chipTipoFiltro: {
+    backgroundColor: colors.inputBg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  chipTipoFiltroActivo: {
+    backgroundColor: 'rgba(224, 109, 40, 0.2)',
+    borderColor: colors.primary,
+  },
+  txtChipTipoFiltro: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  txtChipTipoFiltroActivo: {
+    color: colors.primary,
+    fontWeight: '900',
+  },
+  modalRegionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
+  },
+  modalRegionItemActivo: {
+    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    borderRadius: 6,
+  },
+  modalRegionTexto: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalRegionTextoActivo: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  modalRegionCheck: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '900',
   },
   lista: {
     padding: 16,
@@ -764,9 +1054,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   cardInscrito: {
     borderColor: 'rgba(56, 161, 105, 0.4)',
+    borderLeftColor: colors.success,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -885,7 +1178,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   motivoCancelacionBoxMini: {
@@ -1031,29 +1324,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
   },
-  modalDescripcion: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  inputCodigo: {
-    backgroundColor: colors.inputBg,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 8,
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: 6,
-    textAlign: 'center',
-    paddingVertical: 14,
-    marginBottom: 20,
-  },
-  modalAcciones: {
-    flexDirection: 'row',
-    gap: 10,
-  },
   btnCancelarModal: {
     flex: 1,
     backgroundColor: colors.inputBg,
@@ -1068,20 +1338,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  btnConfirmarModal: {
-    flex: 1,
-    backgroundColor: colors.primary,
+  versusDueloRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(224, 109, 40, 0.1)',
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 109, 40, 0.3)',
+    gap: 8,
+  },
+  versusEquipoBox: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  btnDeshabilitado: {
-    opacity: 0.5,
-  },
-  txtConfirmarModal: {
-    color: '#fff',
-    fontSize: 13,
+  versusDueloEquipoA: {
+    flex: 1,
+    color: colors.success,
+    fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 1,
+  },
+  versusDueloVsBox: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  versusDueloVsTxt: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  versusDueloEquipoB: {
+    flex: 1,
+    color: colors.blueTeam,
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'right',
   },
 });

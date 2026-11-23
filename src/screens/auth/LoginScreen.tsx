@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -29,6 +28,39 @@ export const LoginScreen = () => {
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [tecladoAbierto, setTecladoAbierto] = useState(false);
+  const [cooldownSegundos, setCooldownSegundos] = useState(0);
+  const [mensajeError, setMensajeError] = useState<string | null>(null);
+
+  const timerErrorRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Muestra el mensaje de error bajo el campo de contraseña por 10 segundos y luego lo esconde
+  const mostrarError = (mensaje: string) => {
+    if (timerErrorRef.current) {
+      clearTimeout(timerErrorRef.current);
+    }
+    setMensajeError(mensaje);
+    timerErrorRef.current = setTimeout(() => {
+      setMensajeError(null);
+      timerErrorRef.current = null;
+    }, 10000); // 10 segundos
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerErrorRef.current) {
+        clearTimeout(timerErrorRef.current);
+      }
+    };
+  }, []);
+
+  // Contador de enfriamiento (cooldown) por exceso de intentos de login
+  useEffect(() => {
+    if (cooldownSegundos <= 0) return;
+    const timer = setInterval(() => {
+      setCooldownSegundos((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSegundos]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -51,8 +83,15 @@ export const LoginScreen = () => {
   }, []);
 
   const handleLogin = async () => {
-    if (!identificador.trim() || !password.trim()) {
-      Alert.alert('Atención', 'Por favor ingresa tu alias o correo y tu contraseña.');
+    if (cooldownSegundos > 0) {
+      mostrarError(
+        `Acceso bloqueado por seguridad. Espera ${cooldownSegundos} segundo${cooldownSegundos === 1 ? '' : 's'} antes de volver a intentar.`,
+      );
+      return;
+    }
+
+    if (!identificador.trim()) {
+      mostrarError('Debes ingresar tu correo o alias.');
       return;
     }
 
@@ -60,7 +99,16 @@ export const LoginScreen = () => {
       setCargando(true);
       await login(identificador.trim(), password);
     } catch (error: any) {
-      Alert.alert('Fallo en el ingreso', error.message || 'Credenciales inválidas.');
+      if (error?.segundosRestantes || error?.status === 429) {
+        const seg = Number(error?.segundosRestantes) || 60;
+        setCooldownSegundos(seg);
+        mostrarError(
+          error.message ||
+            `Has superado el límite de 3 intentos continuos fallidos. Acceso bloqueado por ${seg} segundos.`,
+        );
+      } else {
+        mostrarError(error.message || 'Credenciales inválidas.');
+      }
     } finally {
       setCargando(false);
     }
@@ -89,8 +137,8 @@ export const LoginScreen = () => {
           bounces={false}
         >
           <View style={styles.header}>
-            <Text style={styles.badge}>AIRSOFT CHILE</Text>
-            <Text style={styles.title}>BÁJATE PO! 🇨🇱</Text>
+            <Text style={styles.badge}>AIRSOFT CHILE • SISTEMA TÁCTICO</Text>
+            <Text style={styles.title}>BÁJATE PO!</Text>
             <Text style={styles.subtitle}>Inicia sesión como operador táctico</Text>
           </View>
 
@@ -131,13 +179,42 @@ export const LoginScreen = () => {
               </TouchableOpacity>
             </View>
 
+            {mensajeError && (
+              <View style={styles.contenedorError}>
+                <MaterialCommunityIcons
+                  name="alert-circle-outline"
+                  size={18}
+                  color="#EF4444"
+                  style={styles.iconoError}
+                />
+                <Text style={styles.textoError}>{mensajeError}</Text>
+              </View>
+            )}
+
             <TouchableOpacity
-              style={[styles.botonPrincipal, cargando && styles.botonDeshabilitado]}
+              style={[
+                styles.botonPrincipal,
+                (cargando || cooldownSegundos > 0) && styles.botonDeshabilitado,
+                cooldownSegundos > 0 && styles.botonBloqueado,
+              ]}
               onPress={handleLogin}
-              disabled={cargando}
+              disabled={cargando || cooldownSegundos > 0}
+              activeOpacity={0.8}
             >
               {cargando ? (
                 <ActivityIndicator color="#fff" />
+              ) : cooldownSegundos > 0 ? (
+                <View style={styles.filaBotonBloqueado}>
+                  <MaterialCommunityIcons
+                    name="shield-lock-outline"
+                    size={18}
+                    color="#D1D5DB"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={[styles.textoBoton, styles.textoBotonTabular]}>
+                    BLOQUEADO ({cooldownSegundos}s)
+                  </Text>
+                </View>
               ) : (
                 <Text style={styles.textoBoton}>ENTRAR AL CAMPO</Text>
               )}
@@ -205,11 +282,11 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     letterSpacing: 1,
     marginBottom: 8,
-    marginTop: 12,
+    marginTop: 14,
   },
   input: {
     backgroundColor: colors.inputBg,
@@ -261,6 +338,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
   },
+  filaBotonBloqueado: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textoBotonTabular: {
+    fontVariant: ['tabular-nums'],
+    color: '#D1D5DB',
+  },
   linkRegistro: {
     marginTop: 20,
     alignItems: 'center',
@@ -272,5 +358,31 @@ const styles = StyleSheet.create({
   textoDestacado: {
     color: colors.primary,
     fontWeight: '700',
+  },
+  botonBloqueado: {
+    backgroundColor: '#374151',
+  },
+  contenedorError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 10,
+  },
+  iconoError: {
+    marginRight: 8,
+    alignSelf: 'flex-start',
+    marginTop: 1,
+  },
+  textoError: {
+    flex: 1,
+    color: '#F87171',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
   },
 });

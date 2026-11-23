@@ -7,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Modal,
   TextInput,
@@ -22,7 +21,9 @@ import {
   PartidaHistorialItem,
 } from '../../api/auth.service';
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
+import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
 import { colors } from '../../theme/colors';
+import { obtenerEstiloFama } from '../../utils/fama.util';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 const ROLES_INFO: Record<string, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
@@ -36,17 +37,39 @@ const ROLES_INFO: Record<string, { label: string; icon: keyof typeof MaterialCom
 
 const TODOS_LOS_ROLES = ['ASALTO', 'CQB', 'SNIPER', 'DMR', 'APOYO', 'MÉDICO'];
 
-const APODOS_TACTICOS_SUGERIDOS: { id: string; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
-  { id: 'Pichón', label: 'Pichón', icon: 'egg-outline' },
-  { id: 'Combatiente', label: 'Combatiente', icon: 'shield-sword-outline' },
-  { id: 'Punta de Lanza', label: 'Punta de Lanza', icon: 'lightning-bolt' },
-  { id: 'Campero Táctico', label: 'Campero', icon: 'nature' },
-  { id: 'Francotirador', label: 'Francotirador', icon: 'crosshairs' },
-  { id: 'Fantasma', label: 'Fantasma', icon: 'ghost-outline' },
-  { id: 'Lobo Solitario', label: 'Lobo Solitario', icon: 'paw' },
-  { id: 'Veterano de Cancha', label: 'Veterano', icon: 'medal-outline' },
-  { id: 'Leyenda / Inmortal', label: 'Inmortal', icon: 'crown-outline' },
+const APODOS_TACTICOS_SUGERIDOS: {
+  id: string;
+  label: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  desbloqueadoPor: string;
+  minEventos?: number;
+  medallaReq?: string;
+}[] = [
+  { id: 'Pichón', label: 'Pichón', icon: 'egg-outline', desbloqueadoPor: 'Rango inicial por defecto', minEventos: 0 },
+  { id: 'Combatiente', label: 'Combatiente', icon: 'shield-sword-outline', desbloqueadoPor: '1 partida oficial jugada', minEventos: 1 },
+  { id: 'Punta de Lanza', label: 'Punta de Lanza', icon: 'lightning-bolt', desbloqueadoPor: '3 partidas oficiales jugadas', minEventos: 3 },
+  { id: 'Campero Táctico', label: 'Campero', icon: 'nature', desbloqueadoPor: '5 partidas oficiales jugadas', minEventos: 5 },
+  { id: 'Francotirador', label: 'Francotirador', icon: 'crosshairs', desbloqueadoPor: 'Medalla Tirador de Élite (5 rondas ganadas)', medallaReq: 'tirador' },
+  { id: 'Fantasma', label: 'Fantasma', icon: 'ghost-outline', desbloqueadoPor: '8 partidas oficiales jugadas', minEventos: 8 },
+  { id: 'Lobo Solitario', label: 'Lobo Solitario', icon: 'paw', desbloqueadoPor: '10 partidas jugadas', minEventos: 10 },
+  { id: 'Veterano de Cancha', label: 'Veterano', icon: 'medal-outline', desbloqueadoPor: 'Medalla Veterano y 15 partidas', minEventos: 15, medallaReq: 'primera_partida' },
+  { id: 'Leyenda / Inmortal', label: 'Inmortal', icon: 'crown-outline', desbloqueadoPor: '25 partidas oficiales jugadas', minEventos: 25 },
 ];
+
+export const esApodoDesbloqueado = (
+  apodoItem: typeof APODOS_TACTICOS_SUGERIDOS[0],
+  perf: PerfilCompleto | null,
+): boolean => {
+  if (!perf) return false;
+  if (!apodoItem.minEventos && !apodoItem.medallaReq) return true;
+  const eventos = perf.estadisticas?.eventosParticipados || 0;
+  if (apodoItem.minEventos && eventos < apodoItem.minEventos) return false;
+  if (apodoItem.medallaReq) {
+    const medalla = perf.medallas?.find((m) => m.id === apodoItem.medallaReq);
+    if (!medalla || !medalla.obtenida) return false;
+  }
+  return true;
+};
 
 export const PerfilScreen = () => {
   const navigation = useNavigation();
@@ -69,13 +92,33 @@ export const PerfilScreen = () => {
   const [editRoles, setEditRoles] = useState<string[]>([]);
   const [modalSelectorRegionVisible, setModalSelectorRegionVisible] = useState(false);
   const [guardandoFicha, setGuardandoFicha] = useState(false);
+  const [errorFichaModal, setErrorFichaModal] = useState<string | null>(null);
+  const [modalLogoutVisible, setModalLogoutVisible] = useState(false);
+  const [avisoTactico, setAvisoTactico] = useState<{
+    visible: boolean;
+    titulo: string;
+    mensaje: string;
+    tipo: 'exito' | 'advertencia' | 'peligro';
+    icono?: keyof typeof MaterialCommunityIcons.glyphMap;
+  }>({
+    visible: false,
+    titulo: '',
+    mensaje: '',
+    tipo: 'exito',
+  });
 
   const cargarPerfil = async () => {
     try {
       const data = await obtenerPerfilCompletoApi();
       setPerfil(data);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo cargar la ficha del operador');
+      setAvisoTactico({
+        visible: true,
+        titulo: 'FALLO DE CONEXIÓN',
+        mensaje: error.message || 'No se pudo cargar la ficha del operador.',
+        tipo: 'peligro',
+        icono: 'cloud-alert',
+      });
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -99,22 +142,80 @@ export const PerfilScreen = () => {
       await actualizarPerfilApi({ avatarUrl: avatarData });
       await recargarPerfil();
       await cargarPerfil();
-      Alert.alert('¡Excelente!', 'Foto de operador actualizada y sincronizada en línea.');
+      setAvisoTactico({
+        visible: true,
+        titulo: 'FOTO ACTUALIZADA',
+        mensaje: 'La foto de tu operador ha sido sincronizada en el sistema.',
+        tipo: 'exito',
+        icono: 'check-decagram',
+      });
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo sincronizar el avatar');
+      setAvisoTactico({
+        visible: true,
+        titulo: 'ERROR DE SINCRONIZACIÓN',
+        mensaje: error.message || 'No se pudo sincronizar el avatar.',
+        tipo: 'peligro',
+        icono: 'alert-circle-outline',
+      });
     } finally {
       setGuardandoFoto(false);
     }
   };
 
+  const tomarFotoCamara = async () => {
+    try {
+      setModalFotoVisible(false);
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        setAvisoTactico({
+          visible: true,
+          titulo: 'PERMISO DENEGADO',
+          mensaje: 'Se requiere permiso de acceso a la cámara para tomar tu foto táctica.',
+          tipo: 'advertencia',
+          icono: 'camera-off',
+        });
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.3,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        let base64Image = asset.uri;
+        if (asset.base64) {
+          base64Image = `data:image/jpeg;base64,${asset.base64}`;
+        }
+        await guardarAvatarEnBackend(base64Image);
+      }
+    } catch (error: any) {
+      setAvisoTactico({
+        visible: true,
+        titulo: 'ERROR AL CAPTURAR FOTO',
+        mensaje: error.message || 'Ocurrió un problema al abrir la cámara táctica.',
+        tipo: 'peligro',
+        icono: 'camera-off',
+      });
+    }
+  };
+
   const seleccionarFotoGaleria = async () => {
     try {
+      setModalFotoVisible(false);
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permiso denegado',
-          'Se requiere permiso de acceso a la galería para cambiar tu foto táctica.',
-        );
+        setAvisoTactico({
+          visible: true,
+          titulo: 'PERMISO DENEGADO',
+          mensaje: 'Se requiere permiso de acceso a la galería para cambiar tu foto táctica.',
+          tipo: 'advertencia',
+          icono: 'image-off',
+        });
         return;
       }
 
@@ -135,26 +236,18 @@ export const PerfilScreen = () => {
         await guardarAvatarEnBackend(base64Image);
       }
     } catch (error: any) {
-      Alert.alert('Error al seleccionar imagen', error.message || 'Ocurrió un problema');
+      setAvisoTactico({
+        visible: true,
+        titulo: 'ERROR AL SELECCIONAR IMAGEN',
+        mensaje: error.message || 'Ocurrió un problema al acceder a la galería táctica.',
+        tipo: 'peligro',
+        icono: 'image-off',
+      });
     }
   };
 
   const handleOpcionesAvatar = () => {
-    Alert.alert(
-      'Actualizar Foto de Operador',
-      'Elige el método para actualizar tu foto táctica:',
-      [
-        {
-          text: 'ELEGIR DE MI TELÉFONO (GALERÍA)',
-          onPress: seleccionarFotoGaleria,
-        },
-        {
-          text: 'INGRESAR URL DE IMAGEN',
-          onPress: () => setModalFotoVisible(true),
-        },
-        { text: 'CANCELAR', style: 'cancel' },
-      ],
-    );
+    setModalFotoVisible(true);
   };
 
   const handleActualizarAvatarManual = async () => {
@@ -175,26 +268,30 @@ export const PerfilScreen = () => {
       ? perfil.roles.split(',').map((r) => r.trim()).filter(Boolean)
       : ['ASALTO'];
     setEditRoles(rolesArray);
+    setErrorFichaModal(null);
     setModalEditarFichaVisible(true);
   };
 
   const toggleEditRol = (rolId: string) => {
     if (editRoles.includes(rolId)) {
       if (editRoles.length === 1) {
-        Alert.alert('Atención', 'Debes conservar al menos 1 rol en tu ficha.');
+        setErrorFichaModal('Debes conservar al menos 1 rol táctico en tu ficha.');
         return;
       }
+      setErrorFichaModal(null);
       setEditRoles(editRoles.filter((r) => r !== rolId));
     } else {
+      setErrorFichaModal(null);
       setEditRoles([...editRoles, rolId]);
     }
   };
 
   const handleGuardarFichaCompleta = async () => {
     if (!editAlias.trim()) {
-      Alert.alert('Atención', 'El alias o callsign no puede estar vacío.');
+      setErrorFichaModal('El callsign o alias táctico no puede estar vacío.');
       return;
     }
+    setErrorFichaModal(null);
 
     try {
       setGuardandoFicha(true);
@@ -209,23 +306,23 @@ export const PerfilScreen = () => {
       await recargarPerfil();
       await cargarPerfil();
       setModalEditarFichaVisible(false);
-      Alert.alert('🎯 ¡FICHA ACTUALIZADA!', 'Los datos de tu operador fueron guardados y sincronizados en línea.');
+      setErrorFichaModal(null);
+      setAvisoTactico({
+        visible: true,
+        titulo: 'FICHA ACTUALIZADA',
+        mensaje: 'Los datos de tu operador fueron guardados y sincronizados en línea.',
+        tipo: 'exito',
+        icono: 'shield-check',
+      });
     } catch (error: any) {
-      Alert.alert('Error al actualizar', error.message || 'No se pudieron guardar los cambios');
+      setErrorFichaModal(error.message || 'No se pudieron guardar los cambios en la ficha.');
     } finally {
       setGuardandoFicha(false);
     }
   };
 
   const confirmarLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Deseas desvincularte de la estación táctica?',
-      [
-        { text: 'CANCELAR', style: 'cancel' },
-        { text: 'SALIR', style: 'destructive', onPress: logout },
-      ],
-    );
+    setModalLogoutVisible(true);
   };
 
   if (cargando) {
@@ -254,6 +351,8 @@ export const PerfilScreen = () => {
     ? perfil.roles.split(',').map((r) => r.trim()).filter(Boolean)
     : [perfil.estadisticas.rolPredilecto || 'ASALTO'];
 
+  const estiloFama = obtenerEstiloFama(perfil.fama);
+
   return (
     <ScrollView
       style={styles.container}
@@ -269,9 +368,12 @@ export const PerfilScreen = () => {
       {/* Tarjeta Superior: Foto, Callsign, Rango, Región y Botón de Edición */}
       <View style={styles.fichaHeaderCard}>
         <View style={styles.avatarWrapper}>
-          <Image source={avatarSource} style={styles.avatarImg} />
+          <Image
+            source={avatarSource}
+            style={[styles.avatarImg, { borderColor: estiloFama.colorBorde }]}
+          />
           <TouchableOpacity
-            style={styles.btnEditarAvatar}
+            style={[styles.btnEditarAvatar, { borderColor: estiloFama.colorBorde }]}
             onPress={handleOpcionesAvatar}
             disabled={guardandoFoto}
           >
@@ -283,13 +385,42 @@ export const PerfilScreen = () => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.callsign}>{perfil.alias.toUpperCase()}</Text>
+        <Text style={[styles.callsign, { color: estiloFama.colorTexto }]}>
+          {perfil.alias.toUpperCase()}
+        </Text>
         <Text style={styles.emailText}>{perfil.email}</Text>
 
-        <View style={styles.rangoBadge}>
-          <MaterialCommunityIcons name="shield-star-outline" size={15} color={colors.secondary} style={{ marginRight: 4 }} />
-          <Text style={styles.textoRango}>{(perfil.rango || 'Pichón').toUpperCase()}</Text>
-        </View>
+        {/* Rango Oficial de Logro vs Apodo Personalizado */}
+        {(() => {
+          const rangoActual = perfil.rango || 'Pichón';
+          const matchOficial = APODOS_TACTICOS_SUGERIDOS.find(
+            (a) =>
+              a.id.toLowerCase() === rangoActual.trim().toLowerCase() ||
+              a.label.toLowerCase() === rangoActual.trim().toLowerCase(),
+          );
+          const esOficialDesbloqueado = matchOficial && esApodoDesbloqueado(matchOficial, perfil);
+
+          if (esOficialDesbloqueado && matchOficial) {
+            return (
+              <View style={styles.rangoBadge}>
+                <MaterialCommunityIcons
+                  name={matchOficial.icon || 'shield-star-outline'}
+                  size={15}
+                  color={colors.secondary}
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.textoRango}>{rangoActual.toUpperCase()}</Text>
+              </View>
+            );
+          }
+
+          // Si es un apodo personalizado, se muestra sin el logo de logro
+          return (
+            <View style={styles.apodoPersonalizadoBadge}>
+              <Text style={styles.textoApodoPersonalizado}>{rangoActual.toUpperCase()}</Text>
+            </View>
+          );
+        })()}
 
         {perfil.region && (
           <View style={styles.regionRow}>
@@ -363,7 +494,7 @@ export const PerfilScreen = () => {
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons name="shield-account" size={16} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.txtBtnVerMiEquipoPerfil}>VER DETALLES DE MI ESCUADRA 🛡️</Text>
+              <Text style={styles.txtBtnVerMiEquipoPerfil}>VER DETALLES DE MI ESCUADRA</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -379,7 +510,7 @@ export const PerfilScreen = () => {
               activeOpacity={0.8}
             >
               <MaterialCommunityIcons name="shield-search" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-              <Text style={styles.txtBtnBuscarCrearEquipoPerfil}>UNIRSE O CREAR EQUIPO 🛡️</Text>
+              <Text style={styles.txtBtnBuscarCrearEquipoPerfil}>UNIRSE O CREAR EQUIPO</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -399,6 +530,13 @@ export const PerfilScreen = () => {
               {perfil.estadisticas.rondasGanadas}
             </Text>
             <Text style={styles.statLabel}>RONDAS GANADAS</Text>
+          </View>
+
+          <View style={styles.statBox}>
+            <Text style={[styles.statNumero, { color: colors.gold }]}>
+              {perfil.mvpsGanados ?? perfil.estadisticas.mvpsGanados ?? 0}
+            </Text>
+            <Text style={styles.statLabel}>MVPs GANADOS</Text>
           </View>
 
           <View style={styles.statBox}>
@@ -429,13 +567,14 @@ export const PerfilScreen = () => {
           </View>
         ) : (
           <View style={styles.historialLista}>
-            {perfil.historialPartidas.map((item: PartidaHistorialItem) => {
+            {perfil.historialPartidas.slice(0, 3).map((item: PartidaHistorialItem) => {
               const esVictoria = item.resultado === 'VICTORIA';
               const esDerrota = item.resultado === 'DERROTA';
               const esEmpate = item.resultado === 'EMPATE';
+              const bordeColor = esVictoria ? '#4CAF50' : esDerrota ? '#E53935' : '#FFB300';
 
               return (
-                <View key={item.id} style={styles.historialCard}>
+                <View key={item.id} style={[styles.historialCard, { borderLeftColor: bordeColor }]}>
                   {/* Fila superior: Título del evento y Badge de resultado */}
                   <View style={styles.historialHeader}>
                     <Text style={styles.historialTituloEvento} numberOfLines={1}>
@@ -499,20 +638,43 @@ export const PerfilScreen = () => {
                 </View>
               );
             })}
+
+            {perfil.historialPartidas.length > 0 && (
+              <TouchableOpacity
+                style={styles.btnVerTodas}
+                onPress={() =>
+                  (navigation as any).navigate('HistorialCompleto', {
+                    historial: perfil.historialPartidas,
+                  })
+                }
+              >
+                <Text style={styles.btnVerTodasTexto}>
+                  VER HISTORIAL COMPLETO ({perfil.historialPartidas.length})
+                </Text>
+                <MaterialCommunityIcons name="arrow-right" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
 
       {/* Medallas y Condecoraciones */}
       <View style={styles.seccionCard}>
-        <Text style={styles.seccionTitulo}>MEDALLERO DE OPERACIONES</Text>
+        <View style={styles.seccionTituloRow}>
+          <Text style={styles.seccionTitulo}>MEDALLERO DE OPERACIONES</Text>
+          <Text style={styles.conteoMedallasBadge}>
+            {perfil.medallas?.filter((m) => m.obtenida).length ?? 0}/{perfil.medallas?.length ?? 0} DESBLOQUEADAS
+          </Text>
+        </View>
+
         <View style={styles.medallasLista}>
-          {perfil.medallas.map((m) => (
+          {perfil.medallas.slice(0, 3).map((m) => (
             <View
               key={m.id}
               style={[
                 styles.medallaItem,
                 !m.obtenida && styles.medallaBloqueada,
+                { borderLeftColor: m.obtenida ? colors.gold : colors.disabled },
               ]}
             >
               <MaterialCommunityIcons
@@ -525,15 +687,37 @@ export const PerfilScreen = () => {
                 <View style={styles.medallaHeaderRow}>
                   <Text style={styles.medallaTitulo}>{m.titulo}</Text>
                   {m.obtenida ? (
-                    <Text style={styles.tagObtenida}>✓ DESBLOQUEADA</Text>
+                    <View style={styles.tagObtenidaBox}>
+                      <MaterialCommunityIcons name="check-circle" size={12} color={colors.secondary} style={{ marginRight: 3 }} />
+                      <Text style={styles.tagObtenida}>DESBLOQUEADA</Text>
+                    </View>
                   ) : (
-                    <Text style={styles.tagBloqueada}>🔒 BLOQUEADA</Text>
+                    <View style={styles.tagBloqueadaBox}>
+                      <MaterialCommunityIcons name="lock" size={12} color={colors.textMuted} style={{ marginRight: 3 }} />
+                      <Text style={styles.tagBloqueada}>BLOQUEADA</Text>
+                    </View>
                   )}
                 </View>
                 <Text style={styles.medallaDesc}>{m.descripcion}</Text>
               </View>
             </View>
           ))}
+
+          {perfil.medallas.length > 0 && (
+            <TouchableOpacity
+              style={[styles.btnVerTodas, styles.btnVerTodasMedallas]}
+              onPress={() =>
+                (navigation as any).navigate('MedalleroCompleto', {
+                  medallas: perfil.medallas,
+                })
+              }
+            >
+              <Text style={[styles.btnVerTodasTexto, styles.btnVerTodasTextoMedallas]}>
+                VER MEDALLERO COMPLETO ({perfil.medallas.length})
+              </Text>
+              <MaterialCommunityIcons name="arrow-right" size={16} color={colors.secondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -565,7 +749,10 @@ export const PerfilScreen = () => {
                 placeholder="ej: DeltaBravo99"
                 placeholderTextColor={colors.textMuted}
                 value={editAlias}
-                onChangeText={setEditAlias}
+                onChangeText={(t) => {
+                  if (errorFichaModal) setErrorFichaModal(null);
+                  setEditAlias(t);
+                }}
                 autoCapitalize="none"
               />
 
@@ -590,38 +777,87 @@ export const PerfilScreen = () => {
               />
 
               {/* Apodo Táctico / Título de Cancha */}
-              <Text style={styles.inputModalLabel}>APODO TÁCTICO / TÍTULO DE CANCHA 🎖️:</Text>
+              <Text style={styles.inputModalLabel}>TÍTULOS DE HONOR POR LOGRO:</Text>
               <Text style={styles.inputModalAyuda}>
-                Selecciona tu apodo característico de airsoft o escribe uno personalizado:
+                Los títulos tácticos oficiales se desbloquean combatiendo. También puedes ingresar tu propio apodo personalizado abajo:
               </Text>
               <View style={styles.modalApodosGrid}>
                 {APODOS_TACTICOS_SUGERIDOS.map((item) => {
-                  const seleccionado = editRango === item.id;
+                  const desbloqueado = esApodoDesbloqueado(item, perfil);
+                  const seleccionado =
+                    editRango.trim().toLowerCase() === item.id.toLowerCase() ||
+                    editRango.trim().toLowerCase() === item.label.toLowerCase();
                   return (
                     <TouchableOpacity
                       key={item.id}
-                      style={[styles.modalApodoChip, seleccionado && styles.modalApodoChipActivo]}
-                      onPress={() => setEditRango(item.id)}
+                      style={[
+                        styles.modalApodoChip,
+                        seleccionado && styles.modalApodoChipActivo,
+                        !desbloqueado && styles.modalApodoChipBloqueado,
+                      ]}
+                      onPress={() => {
+                        if (!desbloqueado) {
+                          setAvisoTactico({
+                            visible: true,
+                            titulo: 'TÍTULO BLOQUEADO',
+                            mensaje: `"${item.label}" es un título táctico oficial que se desbloquea por mérito en combate:\n\nRequisito: ${item.desbloqueadoPor}.\n\n¡Sigue combatiendo o escribe tu apodo personalizado abajo!`,
+                            tipo: 'advertencia',
+                            icono: 'lock-outline',
+                          });
+                          return;
+                        }
+                        setEditRango(item.id);
+                      }}
                       activeOpacity={0.7}
                     >
                       <MaterialCommunityIcons
-                        name={item.icon}
+                        name={desbloqueado ? item.icon : 'lock-outline'}
                         size={14}
-                        color={seleccionado ? '#fff' : colors.textMuted}
+                        color={
+                          seleccionado
+                            ? '#fff'
+                            : desbloqueado
+                            ? colors.textMuted
+                            : 'rgba(255,255,255,0.3)'
+                        }
                         style={{ marginRight: 4 }}
                       />
-                      <Text style={[styles.modalApodoTxt, seleccionado && styles.modalApodoTxtActivo]}>
+                      <Text
+                        style={[
+                          styles.modalApodoTxt,
+                          seleccionado && styles.modalApodoTxtActivo,
+                          !desbloqueado && styles.modalApodoTxtBloqueado,
+                        ]}
+                      >
                         {item.label}
                       </Text>
-                      {seleccionado && <Text style={styles.modalApodoCheck}>✓</Text>}
+                      {seleccionado && (
+                        <MaterialCommunityIcons
+                          name="check"
+                          size={14}
+                          color="#fff"
+                          style={{ marginLeft: 3 }}
+                        />
+                      )}
+                      {!desbloqueado && (
+                        <MaterialCommunityIcons
+                          name="lock"
+                          size={11}
+                          color="rgba(255,255,255,0.35)"
+                          style={{ marginLeft: 3 }}
+                        />
+                      )}
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
+              <Text style={[styles.inputModalLabel, { marginTop: 6 }]}>
+                O ESCRIBE UN APODO PERSONALIZADO:
+              </Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="ej: Pichón / Francotirador / Veterano"
+                placeholder="ej: Jedi / Lobo Gris / Halcón"
                 placeholderTextColor={colors.textMuted}
                 value={editRango}
                 onChangeText={setEditRango}
@@ -648,17 +884,34 @@ export const PerfilScreen = () => {
                       <Text style={[styles.modalRolTxt, activo && styles.modalRolTxtActivo]}>
                         {info.label}
                       </Text>
-                      {activo && <Text style={styles.modalRolCheck}>✓</Text>}
+                      {activo && (
+                        <MaterialCommunityIcons
+                          name="check"
+                          size={14}
+                          color="#fff"
+                          style={{ marginLeft: 3 }}
+                        />
+                      )}
                     </TouchableOpacity>
                   );
                 })}
               </View>
             </ScrollView>
 
+            {errorFichaModal ? (
+              <View style={styles.bannerErrorModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorModal}>{errorFichaModal}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.modalBotones}>
               <TouchableOpacity
                 style={styles.modalBtnCancelar}
-                onPress={() => setModalEditarFichaVisible(false)}
+                onPress={() => {
+                  setErrorFichaModal(null);
+                  setModalEditarFichaVisible(false);
+                }}
                 disabled={guardandoFicha}
               >
                 <Text style={styles.modalTxtCancelar}>CANCELAR</Text>
@@ -672,7 +925,10 @@ export const PerfilScreen = () => {
                 {guardandoFicha ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.modalTxtGuardar}>GUARDAR CAMBIOS 🎯</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <MaterialCommunityIcons name="content-save" size={16} color="#fff" />
+                    <Text style={styles.modalTxtGuardar}>GUARDAR CAMBIOS</Text>
+                  </View>
                 )}
               </TouchableOpacity>
             </View>
@@ -711,7 +967,13 @@ export const PerfilScreen = () => {
                   >
                     {reg}
                   </Text>
-                  {reg === editRegion && <Text style={styles.modalRegionCheck}>✓</Text>}
+                  {reg === editRegion && (
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -725,7 +987,7 @@ export const PerfilScreen = () => {
         </View>
       </Modal>
 
-      {/* Modal para editar Avatar rápido mediante URL */}
+      {/* Modal para editar Avatar con Cámara, Galería o URL */}
       <Modal
         visible={modalFotoVisible}
         transparent
@@ -734,10 +996,37 @@ export const PerfilScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitulo}>ACTUALIZAR FOTO DE PERFIL</Text>
+            <Text style={styles.modalTitulo}>ACTUALIZAR FOTO DE OPERADOR</Text>
             <Text style={styles.modalSubtitulo}>
-              Pega la URL de tu imagen o foto táctica:
+              Elige cómo deseas actualizar tu avatar táctico:
             </Text>
+
+            {/* Acciones Rápidas: Cámara y Galería */}
+            <View style={styles.modalAvatarOpcionesRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCamara}
+                onPress={tomarFotoCamara}
+                disabled={guardandoFoto}
+              >
+                <MaterialCommunityIcons name="camera" size={20} color="#fff" />
+                <Text style={styles.modalTxtCamara}>TOMAR FOTO</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalBtnGaleria}
+                onPress={seleccionarFotoGaleria}
+                disabled={guardandoFoto}
+              >
+                <MaterialCommunityIcons name="image" size={20} color="#fff" />
+                <Text style={styles.modalTxtGaleria}>GALERÍA</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSeparadorRow}>
+              <View style={styles.modalSeparadorLinea} />
+              <Text style={styles.modalSeparadorTexto}>O MEDIANTE ENLACE WEB</Text>
+              <View style={styles.modalSeparadorLinea} />
+            </View>
 
             <TextInput
               style={styles.modalInput}
@@ -760,18 +1049,46 @@ export const PerfilScreen = () => {
               <TouchableOpacity
                 style={styles.modalBtnGuardar}
                 onPress={handleActualizarAvatarManual}
-                disabled={guardandoFoto}
+                disabled={guardandoFoto || !nuevoAvatar.trim()}
               >
                 {guardandoFoto ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.modalTxtGuardar}>GUARDAR</Text>
+                  <Text style={styles.modalTxtGuardar}>GUARDAR URL</Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Modal Táctico de Cierre de Sesión */}
+      <ModalConfirmacionTactico
+        visible={modalLogoutVisible}
+        titulo="¿ABANDONAR LA ESTACIÓN?"
+        mensaje="¿Estás seguro de que deseas cerrar tu sesión de combate y desvincular este dispositivo?"
+        textoConfirmar="CERRAR SESIÓN"
+        textoCancelar="PERMANECER"
+        tipo="peligro"
+        icono="logout-variant"
+        onConfirmar={() => {
+          setModalLogoutVisible(false);
+          logout();
+        }}
+        onCancelar={() => setModalLogoutVisible(false)}
+      />
+
+      {/* Modal Táctico de Avisos y Notificaciones del Sistema */}
+      <ModalConfirmacionTactico
+        visible={avisoTactico.visible}
+        titulo={avisoTactico.titulo}
+        mensaje={avisoTactico.mensaje}
+        textoConfirmar="ENTENDIDO"
+        tipo={avisoTactico.tipo}
+        icono={avisoTactico.icono}
+        soloAceptar
+        onConfirmar={() => setAvisoTactico((prev) => ({ ...prev, visible: false }))}
+      />
     </ScrollView>
   );
 };
@@ -850,11 +1167,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.inputBg,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.secondary,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 8,
     marginBottom: 8,
+  },
+  apodoPersonalizadoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  textoApodoPersonalizado: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   iconoRango: {
     fontSize: 14,
@@ -957,7 +1291,41 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 10,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
     letterSpacing: 0.5,
+  },
+  conteoMedallasBadge: {
+    color: colors.secondary,
+    fontSize: 10,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 0.5,
+  },
+  btnVerTodas: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 107, 0, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 0, 0.25)',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 6,
+    gap: 6,
+  },
+  btnVerTodasTexto: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  btnVerTodasMedallas: {
+    backgroundColor: 'rgba(255, 179, 0, 0.08)',
+    borderColor: 'rgba(255, 179, 0, 0.25)',
+  },
+  btnVerTodasTextoMedallas: {
+    color: colors.secondary,
   },
   equipoContenido: {
     flexDirection: 'row',
@@ -1067,11 +1435,12 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 8,
   },
   statBox: {
-    flex: 1,
+    width: '48%',
     backgroundColor: colors.inputBg,
     borderRadius: 10,
     padding: 12,
@@ -1081,13 +1450,14 @@ const styles = StyleSheet.create({
   },
   statNumero: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
+    fontVariant: ['tabular-nums'],
     marginBottom: 4,
   },
   statLabel: {
-    color: colors.textMuted,
-    fontSize: 9,
+    color: colors.textSecondary,
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
     textAlign: 'center',
@@ -1122,6 +1492,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   historialHeader: {
     flexDirection: 'row',
@@ -1188,6 +1560,7 @@ const styles = StyleSheet.create({
   marcadorTexto: {
     color: colors.text,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   medallasLista: {
     gap: 10,
@@ -1200,6 +1573,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.disabled,
   },
   medallaBloqueada: {
     opacity: 0.45,
@@ -1222,19 +1597,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
+  tagObtenidaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  tagBloqueadaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(156, 163, 175, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
   tagObtenida: {
     color: colors.success,
     fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
   tagBloqueada: {
     color: colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
   medallaDesc: {
     color: colors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
+    lineHeight: 16,
   },
   btnCerrarSesion: {
     backgroundColor: 'rgba(229, 62, 62, 0.15)',
@@ -1309,6 +1703,11 @@ const styles = StyleSheet.create({
     borderColor: colors.secondary,
     backgroundColor: 'rgba(217, 119, 6, 0.2)',
   },
+  modalApodoChipBloqueado: {
+    opacity: 0.45,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
   modalApodoTxt: {
     color: colors.textMuted,
     fontSize: 11,
@@ -1317,6 +1716,9 @@ const styles = StyleSheet.create({
   modalApodoTxtActivo: {
     color: colors.secondary,
     fontWeight: '800',
+  },
+  modalApodoTxtBloqueado: {
+    color: 'rgba(255,255,255,0.3)',
   },
   modalApodoCheck: {
     color: colors.secondary,
@@ -1473,5 +1875,77 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '800',
+  },
+  modalAvatarOpcionesRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  modalBtnCamara: {
+    flex: 1,
+    backgroundColor: '#2d6a4f',
+    borderRadius: 10,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  modalTxtCamara: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  modalBtnGaleria: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  modalTxtGaleria: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  modalSeparadorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  modalSeparadorLinea: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.cardBorder,
+  },
+  modalSeparadorTexto: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  bannerErrorModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  txtErrorModal: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
   },
 });

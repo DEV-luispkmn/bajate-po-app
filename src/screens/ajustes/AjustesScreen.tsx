@@ -8,38 +8,49 @@ import {
   Switch,
   TextInput,
   Modal,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
 import {
   crearTicketApi,
   listarMisTicketsApi,
   actualizarPreferenciaNotificacionesApi,
   TicketSoporte,
 } from '../../api/configuracion.service';
+import {
+  configurarNotificacionesTelefono,
+  cancelarTodasLasNotificacionesProgramadas,
+} from '../../services/deviceNotifications.service';
 import { colors } from '../../theme/colors';
 import type { NavigationProp } from '../../navigation/types';
 import { useNavigation } from '@react-navigation/native';
 
-const TIPOS_TICKET: { tipo: 'IDEA' | 'SUGERENCIA' | 'PROBLEMA' | 'CANCHA' | 'OTRO'; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+const TIPOS_TICKET: { tipo: 'IDEA' | 'SUGERENCIA' | 'PROBLEMA' | 'OTRO'; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
   { tipo: 'IDEA', label: 'Idea / Propuesta', icon: 'lightbulb-outline' },
   { tipo: 'SUGERENCIA', label: 'Sugerencia', icon: 'comment-text-outline' },
-  { tipo: 'CANCHA', label: 'Proponer Cancha', icon: 'map-marker-plus-outline' },
   { tipo: 'PROBLEMA', label: 'Reporte / Problema', icon: 'alert-circle-outline' },
-  { tipo: 'OTRO', label: 'Otro', icon: 'dots-horizontal-circle-outline' },
+  { tipo: 'OTRO', label: 'Otro / Reactivación', icon: 'restore' },
 ];
 
 export const AjustesScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const { jugador, logout } = useAuth();
+  const { jugador, logout, recargarPerfil } = useAuth();
 
-  // Preferencia de notificaciones
-  const [notificacionesActivas, setNotificacionesActivas] = useState(true);
+  // Preferencia de notificaciones vinculada al perfil del jugador
+  const [notificacionesActivas, setNotificacionesActivas] = useState(
+    jugador?.recibeNotificaciones ?? true,
+  );
   const [guardandoNotif, setGuardandoNotif] = useState(false);
+
+  useEffect(() => {
+    if (jugador && typeof jugador.recibeNotificaciones === 'boolean') {
+      setNotificacionesActivas(jugador.recibeNotificaciones);
+    }
+  }, [jugador?.recibeNotificaciones]);
 
   // Tickets de administración
   const [misTickets, setMisTickets] = useState<TicketSoporte[]>([]);
@@ -47,10 +58,14 @@ export const AjustesScreen = () => {
 
   // Modal para redactar ticket
   const [modalTicketVisible, setModalTicketVisible] = useState(false);
-  const [tipoSeleccionado, setTipoSeleccionado] = useState<'IDEA' | 'SUGERENCIA' | 'PROBLEMA' | 'CANCHA' | 'OTRO'>('IDEA');
+  const [tipoSeleccionado, setTipoSeleccionado] = useState<'IDEA' | 'SUGERENCIA' | 'PROBLEMA' | 'OTRO'>('IDEA');
   const [tituloTicket, setTituloTicket] = useState('');
   const [mensajeTicket, setMensajeTicket] = useState('');
   const [enviandoTicket, setEnviandoTicket] = useState(false);
+  const [errorTicketModal, setErrorTicketModal] = useState<string | null>(null);
+  const [modalExitoTicketVisible, setModalExitoTicketVisible] = useState(false);
+  const [modalAvisoNotifVisible, setModalAvisoNotifVisible] = useState(false);
+  const [modalLogoutVisible, setModalLogoutVisible] = useState(false);
 
   useEffect(() => {
     cargarTickets();
@@ -73,10 +88,20 @@ export const AjustesScreen = () => {
     try {
       setGuardandoNotif(true);
       await actualizarPreferenciaNotificacionesApi(valor);
+      if (!valor) {
+        // Silenciar y cancelar todas las notificaciones agendadas en el teléfono
+        await cancelarTodasLasNotificacionesProgramadas();
+      } else {
+        // Volver a inicializar canal y permisos tácticos
+        await configurarNotificacionesTelefono(jugador?.id);
+      }
+      if (recargarPerfil) {
+        await recargarPerfil().catch(() => null);
+      }
     } catch {
       // Revertir si falla
       setNotificacionesActivas(!valor);
-      Alert.alert('Error', 'No se pudo sincronizar la preferencia de notificaciones.');
+      setModalAvisoNotifVisible(true);
     } finally {
       setGuardandoNotif(false);
     }
@@ -84,9 +109,10 @@ export const AjustesScreen = () => {
 
   const handleEnviarTicket = async () => {
     if (!tituloTicket.trim() || !mensajeTicket.trim()) {
-      Alert.alert('Atención', 'Por favor ingresa un título y el detalle de tu ticket.');
+      setErrorTicketModal('Por favor ingresa un asunto y el detalle de tu ticket.');
       return;
     }
+    setErrorTicketModal(null);
 
     try {
       setEnviandoTicket(true);
@@ -99,31 +125,18 @@ export const AjustesScreen = () => {
       setModalTicketVisible(false);
       setTituloTicket('');
       setMensajeTicket('');
-      Alert.alert(
-        '🎯 ¡TRANSMISIÓN ENVIADA!',
-        'Tu ticket ha sido entregado a la comandancia de administración. Te responderemos a la brevedad.',
-      );
+      setErrorTicketModal(null);
+      setModalExitoTicketVisible(true);
       cargarTickets();
     } catch (error: any) {
-      Alert.alert('Fallo en el envío', error.message || 'No se pudo enviar el ticket.');
+      setErrorTicketModal(error.message || 'No se pudo enviar el ticket.');
     } finally {
       setEnviandoTicket(false);
     }
   };
 
   const handleCerrarSesion = () => {
-    Alert.alert(
-      '🚪 ¿ABANDONAR LA BASE?',
-      '¿Estás seguro de que deseas cerrar tu sesión de combate?',
-      [
-        { text: 'CANCELAR', style: 'cancel' },
-        {
-          text: 'CERRAR SESIÓN',
-          style: 'destructive',
-          onPress: logout,
-        },
-      ],
-    );
+    setModalLogoutVisible(true);
   };
 
   return (
@@ -151,9 +164,9 @@ export const AjustesScreen = () => {
 
         <View style={styles.filaAjuste}>
           <View style={styles.infoAjuste}>
-            <Text style={styles.ajusteNombre}>Alertas de Operaciones</Text>
+            <Text style={styles.ajusteNombre}>Notificaciones Generales</Text>
             <Text style={styles.ajusteDesc}>
-              Recordatorios automáticos en tu móvil a las T-24 hrs y T-30 min antes de que inicie tu partida.
+              Activa o desactiva todas las alertas en tu teléfono (recordatorios de partidas, convocatorias y avisos de escuadrón).
             </Text>
           </View>
           <Switch
@@ -173,7 +186,7 @@ export const AjustesScreen = () => {
           <Text style={styles.seccionTitulo}>BUZÓN DE COMANDANCIA & IDEAS</Text>
         </View>
         <Text style={styles.seccionDesc}>
-          ¿Tienes una idea para la app, quieres proponer una cancha o reportar un inconveniente? Escríbele directo a los administradores.
+          ¿Tienes una idea para la app o quieres reportar un inconveniente? Escríbele directo a los administradores.
         </Text>
 
         <TouchableOpacity
@@ -190,12 +203,20 @@ export const AjustesScreen = () => {
           <Text style={styles.subtituloHistorial}>TUS TRANSMISIONES ANTERIORES:</Text>
           {cargandoTickets ? (
             <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 8 }} />
-          ) : misTickets.length === 0 ? (
+          ) : misTickets.filter((t) => t.tipo !== 'CANCHA').length === 0 ? (
             <Text style={styles.sinTicketsTxt}>Aún no has enviado ninguna idea o reporte.</Text>
           ) : (
-            misTickets.map((t) => (
-              <View key={t.id} style={styles.ticketItem}>
-                <View style={styles.ticketHeader}>
+            misTickets.filter((t) => t.tipo !== 'CANCHA').map((t) => {
+              const bordeTicket =
+                t.estado === 'RESPONDIDO'
+                  ? '#10B981'
+                  : t.estado === 'EN_REVISION'
+                  ? '#F59E0B'
+                  : colors.primary;
+
+              return (
+                <View key={t.id} style={[styles.ticketItem, { borderLeftColor: bordeTicket }]}>
+                  <View style={styles.ticketHeader}>
                   <Text style={styles.ticketTipo}>[{t.tipo}]</Text>
                   <View
                     style={[
@@ -220,8 +241,8 @@ export const AjustesScreen = () => {
                   </View>
                 )}
               </View>
-            ))
-          )}
+            );
+          }))}
         </View>
       </View>
 
@@ -248,7 +269,7 @@ export const AjustesScreen = () => {
       {/* Pie con versión de la app */}
       <View style={styles.footerVersion}>
         <Text style={styles.versionTxt}>BÁJATE PO! AIRSOFT CHILE • VERSIÓN 1.0.0 TACTICAL BUILD</Text>
-        <Text style={styles.versionSub}>Hecho para la comunidad táctica nacional 🇨🇱</Text>
+        <Text style={styles.versionSub}>Hecho para la comunidad táctica nacional</Text>
       </View>
 
       {/* Modal Redactar Ticket / Idea */}
@@ -267,7 +288,7 @@ export const AjustesScreen = () => {
               <MaterialCommunityIcons name="lightbulb-on-outline" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTitulo}>BUZÓN DE ADMINISTRACIÓN</Text>
-                <Text style={styles.modalSubtitulo}>Envía tu idea, reporte o sugerencia a la comandancia.</Text>
+                <Text style={styles.modalSubtitulo}>Envía tu idea, reporte o solicitud de reactivación (equipo o cancha).</Text>
               </View>
             </View>
 
@@ -299,29 +320,45 @@ export const AjustesScreen = () => {
             <Text style={styles.inputLabel}>ASUNTO / TÍTULO:</Text>
             <TextInput
               style={styles.inputTexto}
-              placeholder="ej: Sugerencia de nueva regla para CQB"
+              placeholder="ej: Solicitud de reactivación de escuadra o cancha"
               placeholderTextColor={colors.textMuted}
               value={tituloTicket}
-              onChangeText={setTituloTicket}
+              onChangeText={(t) => {
+                if (errorTicketModal) setErrorTicketModal(null);
+                setTituloTicket(t);
+              }}
               maxLength={150}
             />
 
             <Text style={styles.inputLabel}>MENSAJE / DETALLES:</Text>
             <TextInput
               style={[styles.inputTexto, styles.inputArea]}
-              placeholder="Describe tu propuesta, cancha o reporte con claridad..."
+              placeholder="Describe tu propuesta, reporte o motivo de reactivación..."
               placeholderTextColor={colors.textMuted}
               value={mensajeTicket}
-              onChangeText={setMensajeTicket}
+              onChangeText={(t) => {
+                if (errorTicketModal) setErrorTicketModal(null);
+                setMensajeTicket(t);
+              }}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
             />
 
+            {errorTicketModal ? (
+              <View style={styles.bannerErrorModal}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color={colors.danger} />
+                <Text style={styles.txtErrorModal}>{errorTicketModal}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.modalAcciones}>
               <TouchableOpacity
                 style={styles.btnCancelarModal}
-                onPress={() => setModalTicketVisible(false)}
+                onPress={() => {
+                  setErrorTicketModal(null);
+                  setModalTicketVisible(false);
+                }}
               >
                 <Text style={styles.txtCancelarModal}>CANCELAR</Text>
               </TouchableOpacity>
@@ -341,6 +378,46 @@ export const AjustesScreen = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal Confirmación Transmisión Exitosa */}
+      <ModalConfirmacionTactico
+        visible={modalExitoTicketVisible}
+        titulo="TRANSMISIÓN ENVIADA"
+        mensaje="Tu ticket ha sido entregado a la comandancia de administración. Te responderemos a la brevedad."
+        textoConfirmar="ENTENDIDO"
+        tipo="exito"
+        icono="email-check-outline"
+        soloAceptar
+        onConfirmar={() => setModalExitoTicketVisible(false)}
+      />
+
+      {/* Modal Aviso Error Sincronización Notificaciones */}
+      <ModalConfirmacionTactico
+        visible={modalAvisoNotifVisible}
+        titulo="AVISO DE SINCRONIZACIÓN"
+        mensaje="No se pudo sincronizar la preferencia de notificaciones con la base de datos."
+        textoConfirmar="ENTENDIDO"
+        tipo="advertencia"
+        icono="bell-cancel-outline"
+        soloAceptar
+        onConfirmar={() => setModalAvisoNotifVisible(false)}
+      />
+
+      {/* Modal Táctico de Cierre de Sesión */}
+      <ModalConfirmacionTactico
+        visible={modalLogoutVisible}
+        titulo="¿ABANDONAR LA BASE?"
+        mensaje="¿Estás seguro de que deseas cerrar tu sesión de combate?"
+        textoConfirmar="CERRAR SESIÓN"
+        textoCancelar="CANCELAR"
+        tipo="peligro"
+        icono="logout-variant"
+        onConfirmar={() => {
+          setModalLogoutVisible(false);
+          logout();
+        }}
+        onCancelar={() => setModalLogoutVisible(false)}
+      />
     </ScrollView>
   );
 };
@@ -483,6 +560,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   ticketHeader: {
     flexDirection: 'row',
@@ -689,5 +768,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
+  },
+  bannerErrorModal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 10,
+  },
+  txtErrorModal: {
+    color: colors.danger,
+    fontSize: 11,
+    fontWeight: '700',
+    flex: 1,
   },
 });
