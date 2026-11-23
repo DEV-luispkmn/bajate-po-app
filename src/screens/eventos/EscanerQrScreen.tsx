@@ -4,19 +4,32 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { unirseEventoApi, buscarEventoPorCodigoApi } from '../../api/eventos.service';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { ModalCodigoTactico } from '../../components/ModalCodigoTactico';
+import {
+  ModalConfirmacionTactico,
+  TipoConfirmacionTactico,
+} from '../../components/ModalConfirmacionTactico';
 import type { NavigationProp } from '../../navigation/types';
 import { useNavigation } from '@react-navigation/native';
+
+interface InfoDialogoQr {
+  visible: boolean;
+  titulo: string;
+  mensaje: string;
+  tipo: TipoConfirmacionTactico;
+  icono?: keyof typeof MaterialCommunityIcons.glyphMap;
+  textoConfirmar: string;
+  textoCancelar?: string;
+  soloAceptar?: boolean;
+  onConfirmar: () => void;
+  onCancelar?: () => void;
+}
 
 export const EscanerQrScreen = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -26,8 +39,8 @@ export const EscanerQrScreen = () => {
 
   // Modal para ingreso manual de código táctico (6 dígitos/letras)
   const [modalCodigoVisible, setModalCodigoVisible] = useState(false);
-  const [codigoManual, setCodigoManual] = useState('');
-  const [procesandoCodigo, setProcesandoCodigo] = useState(false);
+  // Modal táctico para resolución de QR escaneado o error
+  const [dialogoQr, setDialogoQr] = useState<InfoDialogoQr | null>(null);
 
   if (!permission) {
     return (
@@ -40,7 +53,12 @@ export const EscanerQrScreen = () => {
   if (!permission.granted) {
     return (
       <View style={styles.containerCentro}>
-        <Text style={styles.iconoPermiso}>📷</Text>
+        <MaterialCommunityIcons
+          name="camera-off-outline"
+          size={54}
+          color={colors.warning}
+          style={styles.iconoPermiso}
+        />
         <Text style={styles.tituloPermiso}>Permiso de Cámara Requerido</Text>
         <Text style={styles.subtituloPermiso}>
           Para unirte al combate en la cancha o escanear el QR del bando, necesitamos acceso a la cámara.
@@ -58,7 +76,14 @@ export const EscanerQrScreen = () => {
           <Text style={styles.textoBotonVolver}>VOLVER</Text>
         </TouchableOpacity>
 
-        {renderModalManual()}
+        <ModalCodigoTactico
+          visible={modalCodigoVisible}
+          onClose={() => setModalCodigoVisible(false)}
+          onSuccess={(eventoId) => {
+            setModalCodigoVisible(false);
+            navigation.replace('EventoDetalle', { eventoId });
+          }}
+        />
       </View>
     );
   }
@@ -75,18 +100,19 @@ export const EscanerQrScreen = () => {
           rol: 'ASALTO',
         });
 
-        Alert.alert(
-          '🎯 ¡ALISTAMIENTO CONFIRMADO EN TERRENO!',
-          `Te has incorporado exitosamente a la operación #${resultado.eventoId} con rol ${resultado.rol}.`,
-          [
-            {
-              text: 'VER SALA TÁCTICA',
-              onPress: () => {
-                navigation.replace('EventoDetalle', { eventoId: resultado.eventoId });
-              },
-            },
-          ],
-        );
+        setDialogoQr({
+          visible: true,
+          titulo: 'ALISTAMIENTO CONFIRMADO EN TERRENO',
+          mensaje: `Te has incorporado exitosamente a la operación #${resultado.eventoId} con rol ${resultado.rol}.`,
+          tipo: 'exito',
+          icono: 'shield-check',
+          textoConfirmar: 'VER SALA TÁCTICA',
+          soloAceptar: true,
+          onConfirmar: () => {
+            setDialogoQr(null);
+            navigation.replace('EventoDetalle', { eventoId: resultado.eventoId });
+          },
+        });
         return;
       }
 
@@ -99,39 +125,43 @@ export const EscanerQrScreen = () => {
       codigoExtraido = codigoExtraido.toUpperCase().trim();
 
       const res = await buscarEventoPorCodigoApi(codigoExtraido);
-      Alert.alert(
-        '🎯 OPERACIÓN LOCALIZADA',
-        `"${res.evento.titulo}" en ${res.evento.canchaNombre || 'campo de juego'}.\n¿Deseas desplegarte a esta partida?`,
-        [
-          {
-            text: 'CANCELAR',
-            style: 'cancel',
-            onPress: () => setEscaneado(false),
-          },
-          {
-            text: 'ENTRAR AL COMBATE',
-            onPress: () => {
-              navigation.replace('EventoDetalle', { eventoId: res.evento.id });
-            },
-          },
-        ],
-      );
+      setDialogoQr({
+        visible: true,
+        titulo: 'OPERACIÓN LOCALIZADA',
+        mensaje: `"${res.evento.titulo}" en ${res.evento.canchaNombre || 'campo de juego'}.\n\n¿Deseas desplegarte a esta partida?`,
+        tipo: 'primario',
+        icono: 'crosshairs-gps',
+        textoConfirmar: 'ENTRAR AL COMBATE',
+        textoCancelar: 'CANCELAR',
+        soloAceptar: false,
+        onConfirmar: () => {
+          setDialogoQr(null);
+          navigation.replace('EventoDetalle', { eventoId: res.evento.id });
+        },
+        onCancelar: () => {
+          setDialogoQr(null);
+          setEscaneado(false);
+        },
+      });
     } catch (error: any) {
-      Alert.alert(
-        'Código o QR no válido',
-        error.message || 'No se encontró ninguna partida activa con este código o QR táctico.',
-        [
-          {
-            text: 'REINTENTAR',
-            onPress: () => setEscaneado(false),
-          },
-          {
-            text: 'CANCELAR',
-            onPress: () => navigation.goBack(),
-            style: 'cancel',
-          },
-        ],
-      );
+      setDialogoQr({
+        visible: true,
+        titulo: 'CÓDIGO O QR NO VÁLIDO',
+        mensaje: error.message || 'No se encontró ninguna partida activa con este código o QR táctico.',
+        tipo: 'peligro',
+        icono: 'alert-circle-outline',
+        textoConfirmar: 'REINTENTAR',
+        textoCancelar: 'VOLVER',
+        soloAceptar: false,
+        onConfirmar: () => {
+          setDialogoQr(null);
+          setEscaneado(false);
+        },
+        onCancelar: () => {
+          setDialogoQr(null);
+          navigation.goBack();
+        },
+      });
     }
   };
 
@@ -145,94 +175,6 @@ export const EscanerQrScreen = () => {
       setProcesando(false);
     }
   };
-
-  const handleBuscarPorCodigoManual = async () => {
-    if (!codigoManual.trim()) {
-      Alert.alert('Atención', 'Por favor ingresa los 6 caracteres del código.');
-      return;
-    }
-    setProcesandoCodigo(true);
-    try {
-      const res = await buscarEventoPorCodigoApi(codigoManual.trim().toUpperCase());
-      setModalCodigoVisible(false);
-      setCodigoManual('');
-      navigation.replace('EventoDetalle', { eventoId: res.evento.id });
-    } catch (error: any) {
-      Alert.alert(
-        'Código no encontrado',
-        error.message || 'No existe ninguna operación con este código de invitación táctico.',
-      );
-    } finally {
-      setProcesandoCodigo(false);
-    }
-  };
-
-  function renderModalManual() {
-    return (
-      <Modal
-        visible={modalCodigoVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalCodigoVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <MaterialCommunityIcons name="form-textbox-password" size={24} color={colors.primary} />
-              <Text style={styles.modalTitulo}>INGRESAR CÓDIGO TÁCTICO</Text>
-            </View>
-
-            <Text style={styles.modalDescripcion}>
-              Ingresa el código alfanumérico de 6 caracteres generado para esta partida (ej: MAS123 o FUEB12).
-            </Text>
-
-            <TextInput
-              style={styles.inputCodigo}
-              placeholder="EJ: MAS123"
-              placeholderTextColor={colors.textMuted}
-              value={codigoManual}
-              onChangeText={(t) => setCodigoManual(t.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-              maxLength={6}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              returnKeyType="go"
-              onSubmitEditing={handleBuscarPorCodigoManual}
-            />
-
-            <View style={styles.modalAcciones}>
-              <TouchableOpacity
-                style={styles.btnCancelarModal}
-                onPress={() => {
-                  setModalCodigoVisible(false);
-                  setCodigoManual('');
-                }}
-              >
-                <Text style={styles.txtCancelarModal}>CANCELAR</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.btnConfirmarModal,
-                  (!codigoManual.trim() || procesandoCodigo) && styles.btnDeshabilitado,
-                ]}
-                onPress={handleBuscarPorCodigoManual}
-                disabled={!codigoManual.trim() || procesandoCodigo}
-              >
-                {procesandoCodigo ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.txtConfirmarModal}>LOCALIZAR</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -284,7 +226,29 @@ export const EscanerQrScreen = () => {
         </View>
       </View>
 
-      {renderModalManual()}
+      <ModalCodigoTactico
+        visible={modalCodigoVisible}
+        onClose={() => setModalCodigoVisible(false)}
+        onSuccess={(eventoId) => {
+          setModalCodigoVisible(false);
+          navigation.replace('EventoDetalle', { eventoId });
+        }}
+      />
+
+      {dialogoQr && (
+        <ModalConfirmacionTactico
+          visible={dialogoQr.visible}
+          titulo={dialogoQr.titulo}
+          mensaje={dialogoQr.mensaje}
+          tipo={dialogoQr.tipo}
+          icono={dialogoQr.icono}
+          textoConfirmar={dialogoQr.textoConfirmar}
+          textoCancelar={dialogoQr.textoCancelar}
+          soloAceptar={dialogoQr.soloAceptar}
+          onConfirmar={dialogoQr.onConfirmar}
+          onCancelar={dialogoQr.onCancelar}
+        />
+      )}
     </View>
   );
 };
@@ -302,7 +266,6 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   iconoPermiso: {
-    fontSize: 54,
     marginBottom: 16,
   },
   tituloPermiso: {
@@ -457,87 +420,6 @@ const styles = StyleSheet.create({
   },
   textoBotonCancelar: {
     color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 20,
-    width: '100%',
-    maxWidth: 380,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  modalTitulo: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  modalDescripcion: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  inputCodigo: {
-    backgroundColor: colors.inputBg,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 8,
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: 6,
-    textAlign: 'center',
-    paddingVertical: 14,
-    marginBottom: 20,
-  },
-  modalAcciones: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  btnCancelarModal: {
-    flex: 1,
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  txtCancelarModal: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  btnConfirmarModal: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  btnDeshabilitado: {
-    opacity: 0.5,
-  },
-  txtConfirmarModal: {
-    color: '#fff',
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1,
