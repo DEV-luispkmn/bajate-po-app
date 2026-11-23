@@ -2,12 +2,30 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
+// 🌍 URL oficial de tu túnel Ngrok para cuando salgas a probar fuera de casa
+export const NGROK_API_URL = 'https://scholar-poise-hardcopy.ngrok-free.dev';
+
+// ⚙️ SWITCH DE ENTORNO:
+// false = MODO LOCAL (desarrollo rápido en casa por Wi-Fi, cambios instantáneos con Fast Refresh)
+// true  = MODO NGROK (para probar fuera de casa con datos móviles)
+export const USAR_NGROK = false;
+
 export function getApiUrl(): string {
-  if (Platform.OS === 'web') {
-    return 'http://localhost:3000';
+  // 1. Si USAR_NGROK está activo, usamos el túnel público https
+  if (USAR_NGROK) {
+    return NGROK_API_URL.replace(/\/$/, '');
   }
 
-  // 1. Intentar obtener la IP del host dinámicamente desde Expo
+  // 2. Si se define variable local en .env y no es ngrok, se respeta
+  if (process.env.EXPO_PUBLIC_API_URL && !process.env.EXPO_PUBLIC_API_URL.includes('ngrok')) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/$/, '');
+  }
+
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8080';
+  }
+
+  // 3. Intentar obtener la IP del host dinámicamente desde Expo (Metro bundler)
   // hostUri viene típicamente como "192.168.1.87:8081"
   const hostUri =
     Constants.expoConfig?.hostUri ||
@@ -17,12 +35,12 @@ export function getApiUrl(): string {
   if (hostUri) {
     const ip = hostUri.split(':')[0];
     if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-      return `http://${ip}:3000`;
+      return `http://${ip}:8080`;
     }
   }
 
-  // 2. Fallback con la IP local de tu computador en la red (Ethernet)
-  return 'http://192.168.1.87:3000';
+  // 4. Fallback con la IP local de tu computador en la red (Ethernet/Wi-Fi)
+  return 'http://192.168.1.87:8080';
 }
 
 export const DEFAULT_API_URL = getApiUrl();
@@ -59,6 +77,8 @@ export async function apiFetch<T>(
   const token = await obtenerToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true', // Permite saltar la página intermedia de Ngrok Free
+    'User-Agent': 'BajatePoApp/1.0',
     ...(options.headers as Record<string, string>),
   };
 
@@ -69,19 +89,28 @@ export async function apiFetch<T>(
   const baseUrl = getApiUrl();
   const url = `${baseUrl}${endpoint}`;
 
-  // Temporizador de corte para que no se quede pegado infinitamente
-  const controller = new AbortController();
-  const timeoutMs = 12000; // 12 segundos
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  if (__DEV__) {
+    console.log(`[API] Solicitando: ${url}`);
+  }
 
-  try {
+  // Temporizador de corte duro (8s) para que la app móvil nunca se congele
+  const controller = new AbortController();
+  const timeoutMs = 8000;
+  let timeoutId: any;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(new Error(`Tiempo de espera agotado al conectar con el servidor en ${baseUrl}. Asegúrate de que el backend y ngrok estén corriendo.`));
+    }, timeoutMs);
+  });
+
+  const fetchPromise = (async () => {
     const response = await fetch(url, {
       ...options,
       headers,
       signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
 
     const data = await response.json().catch(() => null);
 
@@ -89,19 +118,29 @@ export async function apiFetch<T>(
       const errorMsg =
         data?.message ||
         (Array.isArray(data?.message) ? data.message.join(', ') : 'Error en la petición');
-      throw new Error(errorMsg);
+      const err: any = new Error(errorMsg);
+      err.status = response.status;
+      err.data = data;
+      err.segundosRestantes = data?.segundosRestantes;
+      throw err;
     }
 
     return data as T;
+  })();
+
+  try {
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    return res;
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
       throw new Error(
-        `Tiempo de espera agotado al conectar con el servidor en ${baseUrl}. Asegúrate de que el backend esté corriendo y que tu celular esté en el mismo Wi-Fi.`,
+        `Tiempo de espera agotado al conectar con el servidor en ${baseUrl}. Asegúrate de que el backend y ngrok estén activos.`,
       );
     }
     throw new Error(
-      error.message || `No se pudo conectar al servidor en ${baseUrl}. Verifica tu red local.`,
+      error.message || `No se pudo conectar al servidor en ${baseUrl}. Verifica tu conexión a internet o el túnel de ngrok.`,
     );
   }
 }

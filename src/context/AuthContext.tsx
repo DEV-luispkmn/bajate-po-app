@@ -29,22 +29,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let terminado = false;
+
+    // Timer de seguridad: bajo ninguna circunstancia la app se queda más de 4s en pantalla de carga
+    const safetyTimer = setTimeout(() => {
+      if (!terminado) {
+        setIsLoading(false);
+      }
+    }, 4000);
+
     async function verificarSesion() {
       try {
         const token = await obtenerToken();
-        if (token) {
+        if (token && !terminado) {
           const perfil = await obtenerMiPerfilApi();
-          setJugador(perfil);
+          if (!terminado) {
+            setJugador(perfil);
+          }
         }
       } catch {
-        await logoutApi();
-        setJugador(null);
+        if (!terminado) {
+          await logoutApi();
+          setJugador(null);
+        }
       } finally {
+        terminado = true;
+        clearTimeout(safetyTimer);
         setIsLoading(false);
       }
     }
 
     verificarSesion();
+
+    return () => {
+      terminado = true;
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   const login = async (identificador: string, password: string) => {

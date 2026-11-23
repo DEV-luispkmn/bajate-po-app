@@ -10,6 +10,11 @@ export interface Jugador {
   ciudad?: string | null;
   roles?: string | null;
   equipoId?: number;
+  fama?: number;
+  mvpsGanados?: number;
+  esAdmin?: boolean;
+  recibeNotificaciones?: boolean;
+  pushToken?: string | null;
 }
 
 export interface PartidaHistorialItem {
@@ -24,6 +29,14 @@ export interface PartidaHistorialItem {
   marcador: string;
 }
 
+export interface MedallaItem {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  icono: string;
+  obtenida: boolean;
+}
+
 export interface PerfilCompleto {
   id: number;
   alias: string;
@@ -33,6 +46,9 @@ export interface PerfilCompleto {
   region?: string | null;
   ciudad?: string | null;
   roles?: string | null;
+  fama?: number;
+  mvpsGanados?: number;
+  esAdmin?: boolean;
   createdAt: string;
   equipo: {
     id: number;
@@ -44,14 +60,10 @@ export interface PerfilCompleto {
     eventosParticipados: number;
     rondasGanadas: number;
     rolPredilecto: string;
+    mvpsGanados?: number;
+    fama?: number;
   };
-  medallas: {
-    id: string;
-    titulo: string;
-    descripcion: string;
-    icono: string;
-    obtenida: boolean;
-  }[];
+  medallas: MedallaItem[];
   historialPartidas: PartidaHistorialItem[];
 }
 

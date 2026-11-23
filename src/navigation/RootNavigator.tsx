@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from './types';
@@ -17,6 +17,11 @@ import { EventoDetalleScreen } from '../screens/eventos/EventoDetalleScreen';
 import { EscanerQrScreen } from '../screens/eventos/EscanerQrScreen';
 import { PartidaEnVivoScreen } from '../screens/partidas/PartidaEnVivoScreen';
 import { AjustesScreen } from '../screens/ajustes/AjustesScreen';
+import { HistorialCompletoScreen } from '../screens/perfil/HistorialCompletoScreen';
+import { MedalleroCompletoScreen } from '../screens/perfil/MedalleroCompletoScreen';
+
+import { navigationRef, navegarDesdeNotificacion } from './navigationRef';
+export { navigationRef, navegarDesdeNotificacion };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -32,7 +37,7 @@ export const RootNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{
           headerStyle: {
@@ -79,6 +84,16 @@ export const RootNavigator = () => {
               name="Ajustes"
               component={AjustesScreen}
               options={{ title: 'AJUSTES TÁCTICOS' }}
+            />
+            <Stack.Screen
+              name="HistorialCompleto"
+              component={HistorialCompletoScreen}
+              options={{ title: 'HISTORIAL DE COMBATE' }}
+            />
+            <Stack.Screen
+              name="MedalleroCompleto"
+              component={MedalleroCompletoScreen}
+              options={{ title: 'MEDALLERO DE OPERACIONES' }}
             />
           </>
         ) : (

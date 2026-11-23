@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { CanchasScreen } from '../screens/canchas/CanchasScreen';
 import { EquiposScreen } from '../screens/equipos/EquiposScreen';
@@ -10,6 +11,15 @@ import { colors } from '../theme/colors';
 const Tab = createBottomTabNavigator();
 
 export const MainTabNavigator = () => {
+  const insets = useSafeAreaInsets();
+
+  // En Android con cajonera de botones / taskbar / barra de navegación tradicional,
+  // insets.bottom entrega la altura exacta de la barra del sistema (ej: 48px - 56px).
+  // Sumamos ese inset a la altura total y al padding inferior para que los 4 botones
+  // (Inicio, Mapa, Equipos, Perfil) queden perfectamente elevados y visibles.
+  const bottomInset = Math.max(insets.bottom, 10);
+  const alturaTabBar = 58 + bottomInset;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -17,8 +27,8 @@ export const MainTabNavigator = () => {
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.cardBorder,
-          height: 64,
-          paddingBottom: 8,
+          height: alturaTabBar,
+          paddingBottom: bottomInset,
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.primary,
@@ -27,6 +37,11 @@ export const MainTabNavigator = () => {
           fontSize: 10,
           fontWeight: '800',
           letterSpacing: 0.5,
+          marginBottom: 2,
+        },
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
         },
       }}
     >
@@ -36,7 +51,7 @@ export const MainTabNavigator = () => {
         options={{
           tabBarLabel: 'INICIO',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home-variant" size={size || 22} color={color} />
+            <MaterialCommunityIcons name="home-variant" size={size || 24} color={color} />
           ),
         }}
       />
@@ -46,7 +61,7 @@ export const MainTabNavigator = () => {
         options={{
           tabBarLabel: 'MAPA',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="map-marker-radius" size={size || 22} color={color} />
+            <MaterialCommunityIcons name="map-marker-radius" size={size || 24} color={color} />
           ),
         }}
       />
@@ -56,7 +71,7 @@ export const MainTabNavigator = () => {
         options={{
           tabBarLabel: 'EQUIPOS',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="shield-account" size={size || 22} color={color} />
+            <MaterialCommunityIcons name="shield-account" size={size || 24} color={color} />
           ),
         }}
       />
@@ -66,7 +81,7 @@ export const MainTabNavigator = () => {
         options={{
           tabBarLabel: 'PERFIL',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" size={size || 22} color={color} />
+            <MaterialCommunityIcons name="account" size={size || 24} color={color} />
           ),
         }}
       />
