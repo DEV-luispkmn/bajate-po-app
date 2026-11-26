@@ -1,42 +1,62 @@
 # Bájate Po — Aplicación móvil
 
-Aplicación móvil multiplataforma de **Bájate Po**, desarrollada con Expo y React Native. Este README corresponde al proyecto `bajate-po-app`.
-
-> **Estado actual:** el proyecto conserva la pantalla inicial de Expo/React Native. La conexión con la API todavía no está implementada en la aplicación.
+Aplicación móvil multiplataforma de **Bájate Po**, construida con React Native y TypeScript para la comunidad de airsoft en Chile. Este repositorio corresponde al cliente móvil (`bajate-po-app`), conectado a la API REST y servidor Socket.io de `bajate-po-backend`.
 
 ## Stack móvil
 
-- **Expo SDK:** `~58.0.21`
-- **React Native:** `0.88.1`
-- **React:** `19.3.0`
-- **TypeScript:** `~6.0.3`
-- **Navegación:** React Navigation 7 (`native` y `native-stack`)
-- **Entornos:** Android, iOS y web (Expo)
+- **React Native** `0.88.1` y **React** `19.3.0`
+- **TypeScript** `~6.0.3`
+- **Navegación:** React Navigation 7 (`native`, `native-stack`, `bottom-tabs`)
+- **Tiempo real y almacenamiento seguro:** `socket.io-client`, `expo-secure-store`
+- **Capacidades nativas:** cámara QR (`expo-camera`), galería de imágenes (`expo-image-picker`), notificaciones locales/push (`expo-notifications`), selector nativo de fecha y hora (`@react-native-community/datetimepicker`)
+- **Iconografía:** `@expo/vector-icons` (MaterialCommunityIcons)
 
 ## Requisitos
 
-- Node.js y npm, en versiones compatibles con Expo SDK 58.
-- Android Studio y un emulador Android, o un dispositivo Android con Expo Go.
-- Para ejecutar el simulador o generar builds locales de iOS: macOS y Xcode.
-- Git para clonar el repositorio.
+- Node.js y npm
+- Android Studio / emulador Android, o macOS con Xcode para simulador iOS, o dispositivo físico compatible
+- Git
 
-## Instalación y ejecución móvil
+## Funcionalidades principales
 
-Desde la raíz del repositorio móvil:
+- **Autenticación y registro:** inicio de sesión con control de cooldown, registro por pasos (credenciales, foto, región y roles tácticos) y persistencia de token JWT en `expo-secure-store`.
+- **Inicio y notificaciones (`HomeScreen`):** radar de operaciones activas, ingreso rápido por código táctico (`ModalCodigoTactico`), campana y modal de notificaciones en tiempo real.
+- **Mapa y Canchas (`CanchasScreen`, `ModalFichaCancha`):** listado y filtrado por región, modalidad (abierta o de equipo), apertura en Google Maps, registro/edición de campos con coordenadas GPS (soporte iOS para signos `-` y `.`) y envío de sugerencias de cambios con fotografías adjuntas.
+- **Equipos (`EquiposScreen`, `ModalFichaEquipo`):** exploración y búsqueda de escuadrones, ingreso por código, postulaciones con mensaje y contacto, y panel de gestión para Team Leader y Fundador (solicitudes, traspaso de liderazgo, edición y disolución).
+- **Eventos y Partidas (`CrearEventoScreen`, `EventoDetalleScreen`, `EscanerQrScreen`, `PartidaEnVivoScreen`):**
+  - Creación de pichangas, versus y eventos masivos/milsim con selector de fecha/hora adaptado a modo oscuro en iOS y Android (`TacticalDateTimePicker`).
+  - Configuración TACSOP, límites de crono, bandos, escuadras, fases, mesa de cronometraje (`MesaCronometrajeFase1`), misiones (`MisionesCombateFase2`) y escáner QR de bandos.
+  - Gestión de partidas en vivo con rondas en tiempo real, votación MVP y evaluación de fama.
+- **Perfil y Ajustes (`PerfilScreen`, `HistorialCompletoScreen`, `MedalleroCompletoScreen`, `AjustesScreen`):** edición de ficha y avatar, historial completo de partidas, medallero de logros y rangos, control de notificaciones y buzón de tickets a administración.
+- **Usabilidad móvil e iOS:** modales con confirmaciones tácticas reutilizables (`ModalConfirmacionTactico`) y manejo consistente de cierre de teclado (`KeyboardAvoidingView`, cierre al tocar fuera, arrastrar o confirmar).
+
+## Levantar entorno local completo
+
+### 1. Iniciar MySQL y Backend
+
+Desde la carpeta raíz del workspace:
+
+```bash
+docker compose up -d mysql_bajatepo
+```
+
+Luego, en `bajate-po-backend`, configura su `.env` (puerto `8080` por defecto) e inicia el servidor:
+
+```bash
+npm ci
+npm run start:dev
+```
+
+### 2. Instalar dependencias e iniciar la app móvil
+
+Desde `bajate-po-app`:
 
 ```bash
 npm ci
 npm start
 ```
 
-Cuando se abra Expo:
-
-- Presiona `a` para abrir la aplicación en un emulador Android conectado.
-- Presiona `i` para abrir el simulador de iOS (requiere macOS y Xcode).
-- Presiona `w` para abrir la versión web.
-- Escanea el código QR con Expo Go para ejecutarla en un dispositivo físico.
-
-También se pueden usar los scripts definidos en `package.json`:
+También puedes usar directamente:
 
 ```bash
 npm run android
@@ -44,92 +64,60 @@ npm run ios
 npm run web
 ```
 
-Para reiniciar el servidor borrando la caché de Metro:
+### Conexión con la API
 
-```bash
-npx expo start --clear
-```
+La resolución automática de URL en `src/api/client.ts` soporta:
 
-## Levantar base de datos y backend
+- Variable opcional `EXPO_PUBLIC_API_URL` en entorno local.
+- Detección dinámica de la IP del equipo anfitrión cuando se ejecuta en red local.
+- `http://localhost:8080` para entorno web/simulador local.
 
-El workspace de desarrollo contiene el proyecto móvil, `bajate-po-backend` y un `docker-compose.yml` en la carpeta raíz. Si se trabaja con esos directorios juntos:
-
-### 1. Iniciar MySQL
-
-Desde la carpeta que contiene `docker-compose.yml`:
-
-```bash
-docker compose up -d mysql_bajatepo
-```
-
-El servicio publica MySQL en el puerto `3306` y crea la base `bajatepo_db`. Las credenciales de desarrollo están definidas en el Compose local; no las uses en producción ni publiques secretos en el repositorio.
-
-### 2. Iniciar el backend
-
-En otra terminal, desde `bajate-po-backend`:
-
-```bash
-npm ci
-npm run start:dev
-```
-
-El backend NestJS escucha por defecto en el puerto `3000`. Su archivo `.env` debe definir `DATABASE_URL` con una URL MySQL compatible con la configuración local, por ejemplo:
-
-```dotenv
-DATABASE_URL="mysql://<usuario>:<contraseña>@localhost:3306/bajatepo_db"
-```
-
-No sobrescribas ni compartas el `.env` con credenciales personales. La URL debe coincidir con las credenciales configuradas para MySQL.
-
-### 3. Iniciar la aplicación móvil
-
-En otra terminal, desde `bajate-po-app`:
-
-```bash
-npm ci
-npm start
-```
-
-### Acceso a la API desde un dispositivo
-
-Cuando se implemente la integración de la app con la API, `localhost` debe apuntar al equipo correcto:
-
-| Entorno | Host habitual para llegar al backend |
+| Entorno | Dirección del backend |
 | --- | --- |
-| Emulador Android de Android Studio | `10.0.2.2` |
-| Simulador iOS | `localhost` |
-| Dispositivo físico | IP local de la computadora en la misma red Wi-Fi |
-
-La aplicación todavía no define una variable de entorno ni consume endpoints; estos valores son una referencia para la futura integración. No uses `localhost` como host de API desde un teléfono físico.
+| Emulador Android | `http://10.0.2.2:8080` |
+| Simulador iOS / Web | `http://localhost:8080` |
+| Dispositivo físico (misma red Wi-Fi) | `http://<IP-local-del-equipo>:8080` |
 
 ## Estructura principal
 
 ```text
 bajate-po-app/
-├── App.tsx          # Pantalla de entrada
-├── app.json         # Configuración de Expo e íconos
-├── index.ts         # Punto de entrada
-├── assets/          # Recursos gráficos
-├── package.json     # Scripts y dependencias
-└── tsconfig.json    # Configuración de TypeScript
+├── App.tsx                         # Raíz de navegación, AuthContext y SocketContext
+├── app.json                        # Configuración de app, permisos y tema oscuro
+├── eas.json                        # Perfiles de compilación EAS (development, preview, production)
+├── index.ts                        # Punto de entrada
+├── assets/                         # Íconos y recursos gráficos
+├── src/
+│   ├── api/                        # Cliente HTTP y servicios por dominio
+│   ├── components/                 # DateTimePicker táctico y modales compartidos
+│   ├── context/                    # AuthContext y SocketContext
+│   ├── navigation/                 # Stack raíz, Bottom Tabs y ref de navegación
+│   ├── screens/
+│   │   ├── ajustes/                # Ajustes y buzón de tickets
+│   │   ├── auth/                   # Login y registro
+│   │   ├── canchas/                # Canchas, ficha y sugerencias
+│   │   ├── equipos/                # Equipos, postulaciones y panel TL
+│   │   ├── eventos/                # Creación, detalle, QR, crono y misiones
+│   │   ├── home/                   # Inicio y operaciones activas
+│   │   ├── partidas/               # Partida en vivo, MVP y fama
+│   │   └── perfil/                 # Perfil, historial completo y medallero
+│   ├── services/                   # Notificaciones del dispositivo
+│   ├── theme/                      # Paleta de colores tácticos
+│   └── utils/                      # Utilidades de dominio (ej. fama)
+├── package.json
+└── tsconfig.json
 ```
 
 ## Scripts disponibles
 
 | Comando | Descripción |
 | --- | --- |
-| `npm start` | Inicia el servidor de desarrollo de Expo |
-| `npm run android` | Inicia Expo y abre Android |
-| `npm run ios` | Inicia Expo y abre iOS |
-| `npm run web` | Inicia Expo para web |
-
-## Solución de problemas
-
-- **El teléfono no se conecta a Expo:** comprueba que el teléfono y la computadora estén en la misma red. Si la red bloquea la conexión local, prueba el modo túnel desde Expo.
-- **Android no encuentra el backend:** usa `10.0.2.2` en el emulador Android; desde un dispositivo físico usa la IP local de la computadora.
-- **Cambios no aparecen o Metro falla:** detén Expo y vuelve a iniciarlo con `npx expo start --clear`.
-- **`npm ci` falla:** verifica que estés en la carpeta `bajate-po-app` y que uses una versión de Node compatible con Expo SDK 58.
+| `npm start` | Inicia el servidor de desarrollo |
+| `npm run android` | Abre la app en Android |
+| `npm run ios` | Abre la app en simulador iOS |
+| `npm run web` | Abre la app en navegador web |
+| `npx tsc --noEmit` | Verifica tipos TypeScript |
 
 ## Dependencias del proyecto
 
-Las versiones exactas quedan registradas en `package-lock.json`. Para instalar de forma reproducible, usa `npm ci` en lugar de `npm install`.
+Las versiones exactas quedan registradas en `package-lock.json`. Para instalaciones reproducibles, usa `npm ci`.
