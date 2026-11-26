@@ -33,6 +33,7 @@ import {
 import { obtenerEstiloFama } from '../../utils/fama.util';
 import { limpiarRecordatoriosDePartida } from '../../services/deviceNotifications.service';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 
 export const PartidaEnVivoScreen = () => {
   const route = useRoute<any>();
@@ -260,7 +261,7 @@ export const PartidaEnVivoScreen = () => {
   }, [partidaId, socket, conectado]);
 
   // Bandos dinámicos reales de la partida
-  const bando1 = bandos[0] || { id: 1, nombre: 'Bando Alfa', colorHex: '#E53E3E' };
+  const bando1 = bandos[0] || { id: 1, nombre: 'Bando Alfa', colorHex: colors.accent };
   const bando2 = bandos[1] || { id: 2, nombre: 'Bando Bravo', colorHex: '#3182CE' };
   const puntosBando1 = marcador[bando1.id] || 0;
   const puntosBando2 = marcador[bando2.id] || 0;
@@ -553,7 +554,7 @@ export const PartidaEnVivoScreen = () => {
           {/* Sección de MVPs de la partida */}
           <View style={styles.mvpSectionContainer}>
             <View style={styles.mvpSectionHeader}>
-              <MaterialCommunityIcons name="star-shooting" size={18} color="#F59E0B" />
+              <MaterialCommunityIcons name="star-shooting" size={18} color={colors.warning} />
               <Text style={styles.txtMvpSectionHeader}>JUGADORES MÁS VALIOSOS (MVPs)</Text>
             </View>
 
@@ -561,13 +562,13 @@ export const PartidaEnVivoScreen = () => {
               <View style={styles.mvpListRow}>
                 {mvps.map((m) => (
                   <View key={m.bandoId} style={styles.mvpBadgeCard}>
-                    <MaterialCommunityIcons name="trophy-award" size={20} color="#F59E0B" />
+                    <MaterialCommunityIcons name="trophy-award" size={20} color={colors.warning} />
                     <View style={{ marginLeft: 8, flex: 1 }}>
                       <Text style={styles.mvpBandoTitulo} numberOfLines={1}>
                         {m.bandoNombre || `Bando #${m.bandoId}`}
                       </Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <MaterialCommunityIcons name="star" size={13} color="#F59E0B" />
+                        <MaterialCommunityIcons name="star" size={13} color={colors.warning} />
                         <Text style={styles.mvpAliasText} numberOfLines={1}>
                           {m.alias || `Operador #${m.jugadorId}`}
                         </Text>
@@ -598,7 +599,7 @@ export const PartidaEnVivoScreen = () => {
                 </View>
               ) : plazoMvpExpirado ? (
                 <View style={styles.bannerMvpExpirado}>
-                  <MaterialCommunityIcons name="clock-alert-outline" size={16} color="#EF4444" style={{ marginRight: 6 }} />
+                  <MaterialCommunityIcons name="clock-alert-outline" size={16} color={colors.danger} style={{ marginRight: 6 }} />
                   <Text style={styles.txtMvpExpirado}>
                     El plazo para premiar al MVP concluyó (límite de 48 horas tras finalizar el combate).
                   </Text>
@@ -608,8 +609,10 @@ export const PartidaEnVivoScreen = () => {
                   style={styles.btnAbrirModalMvp}
                   onPress={() => setModalMvpVisible(true)}
                   activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Votar MVP de mi escuadra"
                 >
-                  <MaterialCommunityIcons name="star-circle" size={18} color="#000" style={{ marginRight: 6 }} />
+                  <MaterialCommunityIcons name="star-circle" size={18} color={colors.onPrimary} style={{ marginRight: 6 }} />
                   <Text style={styles.txtBtnAbrirModalMvp}>VOTAR MVP DE MI ESCUADRA</Text>
                 </TouchableOpacity>
               )
@@ -619,7 +622,7 @@ export const PartidaEnVivoScreen = () => {
             {miParticipacion && (
               <View style={styles.cardFamaPostPartida}>
                 <View style={styles.headerFamaPostPartida}>
-                  <MaterialCommunityIcons name="scale-balance" size={18} color="#FFD700" />
+                  <MaterialCommunityIcons name="scale-balance" size={18} color={colors.trophyGold} />
                   <Text style={styles.tituloFamaPostPartida}>SISTEMA DE FAMA Y REPUTACIÓN</Text>
                 </View>
                 <Text style={styles.subtituloFamaPostPartida}>
@@ -647,12 +650,14 @@ export const PartidaEnVivoScreen = () => {
             disabled={uniendosePartida}
             onPress={() => handleUnirseORebalancear(undefined)}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Entrar al combate con balance automático"
           >
             {uniendosePartida ? (
-              <ActivityIndicator color="#000" size="small" />
+              <ActivityIndicator color={colors.onPrimary} size="small" />
             ) : (
               <>
-                <MaterialCommunityIcons name="scale-balance" size={16} color="#000" style={{ marginRight: 6 }} />
+                <MaterialCommunityIcons name="scale-balance" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
                 <Text style={styles.txtBtnBalanceAuto}>ENTRAR CON BALANCE AUTOMÁTICO</Text>
               </>
             )}
@@ -667,6 +672,8 @@ export const PartidaEnVivoScreen = () => {
               ]}
               disabled={uniendosePartida}
               onPress={() => handleUnirseORebalancear(bando1.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Entrar al bando ${bando1.nombre}`}
             >
               <Text style={styles.txtBtnBandoDirecto} numberOfLines={1}>
                 ENTRAR A {bando1.nombre.toUpperCase()}
@@ -681,6 +688,8 @@ export const PartidaEnVivoScreen = () => {
               ]}
               disabled={uniendosePartida}
               onPress={() => handleUnirseORebalancear(bando2.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Entrar al bando ${bando2.nombre}`}
             >
               <Text style={styles.txtBtnBandoDirecto} numberOfLines={1}>
                 ENTRAR A {bando2.nombre.toUpperCase()}
@@ -714,6 +723,8 @@ export const PartidaEnVivoScreen = () => {
               ]}
               disabled={registrando || !tieneQuorumPuntaje}
               onPress={() => handleAnotarRonda(bando1.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Anotar punto para ${bando1.nombre}`}
             >
               <Text style={styles.textoBotonVictoria} numberOfLines={1}>
                 + PUNTO {bando1.nombre.toUpperCase()}
@@ -728,6 +739,8 @@ export const PartidaEnVivoScreen = () => {
               ]}
               disabled={registrando || !tieneQuorumPuntaje}
               onPress={() => handleAnotarRonda(undefined)}
+              accessibilityRole="button"
+              accessibilityLabel="Anotar empate de ronda"
             >
               <Text style={styles.textoBotonEmpate}>EMPATE</Text>
             </TouchableOpacity>
@@ -740,6 +753,8 @@ export const PartidaEnVivoScreen = () => {
               ]}
               disabled={registrando || !tieneQuorumPuntaje}
               onPress={() => handleAnotarRonda(bando2.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Anotar punto para ${bando2.nombre}`}
             >
               <Text style={styles.textoBotonVictoria} numberOfLines={1}>
                 + PUNTO {bando2.nombre.toUpperCase()}
@@ -752,12 +767,14 @@ export const PartidaEnVivoScreen = () => {
             style={[styles.btnFinalizarPartida, finalizando && styles.btnDeshabilitado]}
             onPress={handleFinalizarPartida}
             disabled={finalizando}
+            accessibilityRole="button"
+            accessibilityLabel="Finalizar combate y declarar ganador"
           >
             {finalizando ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={colors.text} size="small" />
             ) : (
               <>
-                <MaterialCommunityIcons name="flag-checkered" size={16} color="#fff" style={{ marginRight: 6 }} />
+                <MaterialCommunityIcons name="flag-checkered" size={16} color={colors.text} style={{ marginRight: 6 }} />
                 <Text style={styles.txtBtnFinalizarPartida}>FINALIZAR COMBATE (DECLARAR GANADOR)</Text>
               </>
             )}
@@ -817,7 +834,9 @@ export const PartidaEnVivoScreen = () => {
                           style={styles.btnEvaluarOperadorMini}
                           onPress={() => abrirModalFama(j)}
                           activeOpacity={0.7}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Evaluar fama de ${j.alias}`}
                         >
                           <MaterialCommunityIcons name="scale-balance" size={11} color={colors.primary} />
                           <Text style={styles.txtBtnEvaluarOperadorMini}>Evaluar</Text>
@@ -832,7 +851,7 @@ export const PartidaEnVivoScreen = () => {
               {estadoPartida !== 'FINALIZADA' && miParticipacion && (
                 miParticipacion.bandoId === bando1.id ? (
                   <View style={styles.badgeTuEscuadra}>
-                    <MaterialCommunityIcons name="shield-check" size={12} color="#fff" style={{ marginRight: 3 }} />
+                    <MaterialCommunityIcons name="shield-check" size={12} color={colors.text} style={{ marginRight: 3 }} />
                     <Text style={styles.txtTuEscuadra}>TU ESCUADRA</Text>
                   </View>
                 ) : (
@@ -887,7 +906,9 @@ export const PartidaEnVivoScreen = () => {
                           style={styles.btnEvaluarOperadorMini}
                           onPress={() => abrirModalFama(j)}
                           activeOpacity={0.7}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Evaluar fama de ${j.alias}`}
                         >
                           <MaterialCommunityIcons name="scale-balance" size={11} color={colors.primary} />
                           <Text style={styles.txtBtnEvaluarOperadorMini}>Evaluar</Text>
@@ -902,7 +923,7 @@ export const PartidaEnVivoScreen = () => {
               {estadoPartida !== 'FINALIZADA' && miParticipacion && (
                 miParticipacion.bandoId === bando2.id ? (
                   <View style={styles.badgeTuEscuadra}>
-                    <MaterialCommunityIcons name="shield-check" size={12} color="#fff" style={{ marginRight: 3 }} />
+                    <MaterialCommunityIcons name="shield-check" size={12} color={colors.text} style={{ marginRight: 3 }} />
                     <Text style={styles.txtTuEscuadra}>TU ESCUADRA</Text>
                   </View>
                 ) : (
@@ -967,7 +988,7 @@ export const PartidaEnVivoScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeaderMvp}>
-              <MaterialCommunityIcons name="trophy-award" size={28} color="#F59E0B" />
+              <MaterialCommunityIcons name="trophy-award" size={28} color={colors.warning} />
               <Text style={styles.modalTituloMvp}>ELIGE AL MVP DE TU ESCUADRA</Text>
             </View>
             <Text style={styles.modalSubtituloMvp}>
@@ -997,7 +1018,7 @@ export const PartidaEnVivoScreen = () => {
                       onPress={() => handleVotarMvp(comp.jugadorId)}
                       disabled={votandoMvp}
                     >
-                      <MaterialCommunityIcons name="star" size={14} color="#000" style={{ marginRight: 4 }} />
+                      <MaterialCommunityIcons name="star" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
                       <Text style={styles.txtBtnVotarCandidato}>VOTAR</Text>
                     </TouchableOpacity>
                   </View>
@@ -1033,7 +1054,7 @@ export const PartidaEnVivoScreen = () => {
               <MaterialCommunityIcons
                 name={tipoEvaluacion === 'RECONOCIMIENTO' ? 'shield-star' : 'alert-decagram'}
                 size={26}
-                color={tipoEvaluacion === 'RECONOCIMIENTO' ? '#FFD700' : '#EF4444'}
+                color={tipoEvaluacion === 'RECONOCIMIENTO' ? colors.trophyGold : colors.danger}
               />
               <Text style={styles.modalTituloMvp}>EVALUACIÓN DE CONDUCTA</Text>
             </View>
@@ -1073,7 +1094,7 @@ export const PartidaEnVivoScreen = () => {
                 <MaterialCommunityIcons
                   name="trophy-award"
                   size={15}
-                  color={tipoEvaluacion === 'RECONOCIMIENTO' ? '#FFD700' : colors.textMuted}
+                  color={tipoEvaluacion === 'RECONOCIMIENTO' ? colors.trophyGold : colors.textMuted}
                   style={{ marginRight: 5 }}
                 />
                 <Text
@@ -1100,7 +1121,7 @@ export const PartidaEnVivoScreen = () => {
                 <MaterialCommunityIcons
                   name="shield-alert"
                   size={15}
-                  color={tipoEvaluacion === 'REPORTE' ? '#EF4444' : colors.textMuted}
+                  color={tipoEvaluacion === 'REPORTE' ? colors.danger : colors.textMuted}
                   style={{ marginRight: 5 }}
                 />
                 <Text
@@ -1134,7 +1155,7 @@ export const PartidaEnVivoScreen = () => {
                         <View
                           style={[
                             styles.radioDotInnerFama,
-                            { backgroundColor: tipoEvaluacion === 'RECONOCIMIENTO' ? '#FFD700' : '#EF4444' },
+                            { backgroundColor: tipoEvaluacion === 'RECONOCIMIENTO' ? colors.trophyGold : colors.danger },
                           ]}
                         />
                       )}
@@ -1143,7 +1164,7 @@ export const PartidaEnVivoScreen = () => {
                       <Text
                         style={[
                           styles.txtTituloCategoriaFama,
-                          seleccionada && { color: tipoEvaluacion === 'RECONOCIMIENTO' ? '#FFD700' : '#EF4444' },
+                          seleccionada && { color: tipoEvaluacion === 'RECONOCIMIENTO' ? colors.trophyGold : colors.danger },
                         ]}
                       >
                         {cat.label}
@@ -1159,7 +1180,7 @@ export const PartidaEnVivoScreen = () => {
             <TouchableOpacity
               style={[
                 styles.btnEnviarEvaluacionFama,
-                { backgroundColor: tipoEvaluacion === 'RECONOCIMIENTO' ? '#FFD700' : '#DC2626' },
+                { backgroundColor: tipoEvaluacion === 'RECONOCIMIENTO' ? colors.trophyGold : '#DC2626' },
                 enviandoEvaluacion && styles.btnDeshabilitado,
               ]}
               onPress={handleEnviarEvaluacionFama}
@@ -1167,13 +1188,13 @@ export const PartidaEnVivoScreen = () => {
               activeOpacity={0.85}
             >
               {enviandoEvaluacion ? (
-                <ActivityIndicator color="#000" size="small" />
+                <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <MaterialCommunityIcons
                     name={tipoEvaluacion === 'RECONOCIMIENTO' ? 'star' : 'alert-circle'}
                     size={16}
-                    color={tipoEvaluacion === 'RECONOCIMIENTO' ? '#000' : '#FFF'}
+                    color={tipoEvaluacion === 'RECONOCIMIENTO' ? colors.onPrimary : colors.text}
                   />
                   <Text
                     style={[
@@ -1257,7 +1278,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   dotVerde: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.success,
   },
   dotRojo: {
     backgroundColor: colors.danger,
@@ -1277,24 +1298,24 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badgePendiente: {
-    backgroundColor: 'rgba(214, 158, 46, 0.2)',
+    backgroundColor: colors.warningSoft,
   },
   badgeEnCurso: {
     backgroundColor: 'rgba(229, 62, 62, 0.25)',
   },
   badgeFinalizada: {
-    backgroundColor: 'rgba(56, 161, 105, 0.25)',
+    backgroundColor: colors.successSoft,
   },
   estadoPartidaTxt: {
-    color: '#fff',
-    fontSize: 9,
+    color: colors.text,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
   partidaTitulo: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
   },
   marcadorCard: {
@@ -1332,14 +1353,14 @@ const styles = StyleSheet.create({
   bandoScoreTitulo: {
     color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '800',
+    fontFamily: fonts.displaySemiBold,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   scoreNumero: {
     color: colors.primary,
     fontSize: 48,
-    fontWeight: '900',
+    fontFamily: fonts.monoBold,
     fontVariant: ['tabular-nums'],
   },
   scoreVs: {
@@ -1355,7 +1376,7 @@ const styles = StyleSheet.create({
   bannerGanadorFinal: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(214, 158, 46, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     borderRadius: 12,
@@ -1444,7 +1465,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
   },
   textoBotonVictoria: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1463,7 +1484,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   txtBtnFinalizarPartida: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1528,7 +1549,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   syncBadge: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1550,7 +1571,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   txtMvpSectionHeader: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1563,9 +1584,9 @@ const styles = StyleSheet.create({
   mvpBadgeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: colors.warningBorder,
     borderLeftWidth: 4,
     borderLeftColor: colors.gold,
     borderRadius: 8,
@@ -1578,18 +1599,18 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   mvpAliasText: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '900',
   },
   mvpVotosBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: colors.warningSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   txtMvpVotosBadge: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -1602,7 +1623,7 @@ const styles = StyleSheet.create({
   bannerVotoEmitido: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 161, 105, 0.12)',
+    backgroundColor: colors.successSoft,
     padding: 8,
     borderRadius: 6,
     marginTop: 6,
@@ -1615,15 +1636,15 @@ const styles = StyleSheet.create({
   bannerMvpExpirado: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.dangerBorder,
     borderRadius: 8,
     padding: 10,
     marginTop: 6,
   },
   txtMvpExpirado: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 11,
     fontWeight: '700',
     flex: 1,
@@ -1632,13 +1653,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.warning,
     paddingVertical: 10,
     borderRadius: 8,
     marginTop: 6,
   },
   txtBtnAbrirModalMvp: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1698,7 +1719,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -1719,7 +1740,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   modalTituloMvp: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1760,7 +1781,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(56, 161, 105, 0.1)',
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1777,13 +1798,13 @@ const styles = StyleSheet.create({
   btnVotarCandidato: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.warning,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 6,
   },
   txtBtnVotarCandidato: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
   },
@@ -1800,9 +1821,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cardUnirsePartida: {
-    backgroundColor: 'rgba(56, 161, 105, 0.08)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(56, 161, 105, 0.3)',
+    borderColor: colors.primaryBorder,
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
     borderRadius: 12,
@@ -1838,7 +1859,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   txtBtnBalanceAuto: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1855,14 +1876,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   txtBtnBandoDirecto: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '800',
   },
   badgeTuEscuadra: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: 'rgba(56, 161, 105, 0.35)',
+    borderColor: colors.successBorder,
     borderRadius: 5,
     paddingVertical: 4,
     paddingHorizontal: 6,
@@ -1878,7 +1899,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderRadius: 5,
@@ -1907,7 +1928,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   tituloFamaPostPartida: {
-    color: '#FFD700',
+    color: colors.trophyGold,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1925,20 +1946,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   badgeYaEvaluadoMini: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.borderSubtle,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   txtYaEvaluadoMini: {
     color: colors.textSecondary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
   },
   btnEvaluarOperadorMini: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
     paddingHorizontal: 8,
@@ -1948,7 +1969,7 @@ const styles = StyleSheet.create({
   },
   txtBtnEvaluarOperadorMini: {
     color: colors.primary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     marginLeft: 3,
   },
@@ -1991,11 +2012,11 @@ const styles = StyleSheet.create({
   },
   btnTipoEvaluacionActivoReconocimiento: {
     backgroundColor: 'rgba(255, 215, 0, 0.15)',
-    borderColor: '#FFD700',
+    borderColor: colors.trophyGold,
   },
   btnTipoEvaluacionActivoReporte: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: '#EF4444',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   txtTipoEvaluacion: {
     color: colors.textMuted,
@@ -2004,10 +2025,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   txtTipoEvaluacionActivoReconocimiento: {
-    color: '#FFD700',
+    color: colors.trophyGold,
   },
   txtTipoEvaluacionActivoReporte: {
-    color: '#EF4444',
+    color: colors.danger,
   },
   cardCategoriaFama: {
     flexDirection: 'row',
@@ -2021,11 +2042,11 @@ const styles = StyleSheet.create({
   },
   cardCategoriaFamaActivaRecon: {
     backgroundColor: 'rgba(255, 215, 0, 0.08)',
-    borderColor: '#FFD700',
+    borderColor: colors.trophyGold,
   },
   cardCategoriaFamaActivaRep: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderColor: '#EF4444',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   radioDotFama: {
     width: 16,

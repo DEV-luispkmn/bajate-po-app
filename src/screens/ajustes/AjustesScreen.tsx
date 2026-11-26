@@ -28,6 +28,7 @@ import {
   cancelarTodasLasNotificacionesProgramadas,
 } from '../../services/deviceNotifications.service';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import type { NavigationProp } from '../../navigation/types';
 import { useNavigation } from '@react-navigation/native';
 
@@ -176,7 +177,7 @@ export const AjustesScreen = () => {
             value={notificacionesActivas}
             onValueChange={handleToggleNotificaciones}
             trackColor={{ false: colors.inputBg, true: colors.primary }}
-            thumbColor={notificacionesActivas ? '#fff' : colors.textMuted}
+            thumbColor={notificacionesActivas ? colors.text : colors.textMuted}
             disabled={guardandoNotif}
           />
         </View>
@@ -197,7 +198,7 @@ export const AjustesScreen = () => {
           onPress={() => setModalTicketVisible(true)}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="plus-circle-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+          <MaterialCommunityIcons name="plus-circle-outline" size={18} color={colors.onPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.txtBtnCrearTicket}>TRANSMITIR IDEA O TICKET</Text>
         </TouchableOpacity>
 
@@ -212,9 +213,9 @@ export const AjustesScreen = () => {
             misTickets.filter((t) => t.tipo !== 'CANCHA').map((t) => {
               const bordeTicket =
                 t.estado === 'RESPONDIDO'
-                  ? '#10B981'
+                  ? colors.success
                   : t.estado === 'EN_REVISION'
-                  ? '#F59E0B'
+                  ? colors.warning
                   : colors.primary;
 
               return (
@@ -264,7 +265,7 @@ export const AjustesScreen = () => {
           onPress={handleCerrarSesion}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="logout" size={18} color="#fff" style={{ marginRight: 6 }} />
+          <MaterialCommunityIcons name="logout" size={18} color={colors.text} style={{ marginRight: 6 }} />
           <Text style={styles.txtBtnCerrarSesion}>CERRAR SESIÓN</Text>
         </TouchableOpacity>
       </View>
@@ -392,7 +393,7 @@ export const AjustesScreen = () => {
                 disabled={enviandoTicket}
               >
                 {enviandoTicket ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <Text style={styles.txtEnviarModal}>TRANSMITIR</Text>
                 )}
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
   operadorAlias: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
     marginTop: 2,
   },
@@ -513,7 +514,7 @@ const styles = StyleSheet.create({
   seccionTitulo: {
     color: colors.text,
     fontSize: 13,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 1,
   },
   seccionDesc: {
@@ -553,7 +554,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   txtBtnCrearTicket: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -603,17 +604,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badgePendiente: {
-    backgroundColor: 'rgba(214, 158, 46, 0.2)',
+    backgroundColor: colors.warningSoft,
   },
   badgeRevision: {
     backgroundColor: 'rgba(49, 130, 206, 0.2)',
   },
   badgeRespondido: {
-    backgroundColor: 'rgba(56, 161, 105, 0.2)',
+    backgroundColor: colors.successSoft,
   },
   ticketEstadoTxt: {
     color: colors.text,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
   },
   ticketTitulo: {
@@ -635,7 +636,7 @@ const styles = StyleSheet.create({
   },
   respuestaLabel: {
     color: colors.success,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   txtBtnCerrarSesion: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1,
@@ -677,7 +678,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -733,7 +734,7 @@ const styles = StyleSheet.create({
   },
   chipTipoActivo: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
   },
   chipTipoTxt: {
     color: colors.textSecondary,
@@ -787,7 +788,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   txtEnviarModal: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -796,9 +797,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.dangerBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,

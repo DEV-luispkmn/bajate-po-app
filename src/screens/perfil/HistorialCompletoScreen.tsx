@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import { RootStackParamList } from '../../navigation/types';
 import { PartidaHistorialItem, obtenerPerfilCompletoApi } from '../../api/auth.service';
 
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
   resumenTitulo: {
     color: colors.text,
     fontSize: 13,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
   },
   resumenStatsRow: {
@@ -312,12 +313,12 @@ const styles = StyleSheet.create({
   statNumero: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: fonts.monoBold,
     fontVariant: ['tabular-nums'],
   },
   statLabel: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     marginTop: 4,
   },
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   filtroTextoActivo: {
-    color: colors.text,
+    color: colors.onPrimary,
     fontWeight: '900',
   },
   listaPartidas: {
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: colors.surfaceSubtle,
   },
   partidaTitulo: {
     color: colors.text,
@@ -384,16 +385,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   resultadoVictoria: {
-    backgroundColor: 'rgba(46, 125, 50, 0.25)',
-    borderColor: '#4CAF50',
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
   },
   resultadoDerrota: {
-    backgroundColor: 'rgba(198, 40, 40, 0.25)',
-    borderColor: '#E53935',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   resultadoEmpate: {
-    backgroundColor: 'rgba(239, 108, 0, 0.25)',
-    borderColor: '#FFB300',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warning,
   },
   resultadoTexto: {
     fontSize: 10,
@@ -401,13 +402,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   textoVictoria: {
-    color: '#81C784',
+    color: colors.success,
   },
   textoDerrota: {
-    color: '#EF9A9A',
+    color: colors.danger,
   },
   textoEmpate: {
-    color: '#FFE082',
+    color: colors.warning,
   },
   metaGrid: {
     gap: 6,

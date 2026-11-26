@@ -27,8 +27,10 @@ import {
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
 import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import { obtenerEstiloFama } from '../../utils/fama.util';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ROLES_INFO: Record<string, { label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }> = {
   ASALTO: { label: 'Asalto', icon: 'lightning-bolt' },
@@ -77,6 +79,7 @@ export const esApodoDesbloqueado = (
 
 export const PerfilScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { logout, recargarPerfil } = useAuth();
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -362,7 +365,7 @@ export const PerfilScreen = () => {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top + 12, 44) }]}
       refreshControl={
         <RefreshControl
           refreshing={refrescando}
@@ -382,6 +385,9 @@ export const PerfilScreen = () => {
             style={[styles.btnEditarAvatar, { borderColor: estiloFama.colorBorde }]}
             onPress={handleOpcionesAvatar}
             disabled={guardandoFoto}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Cambiar foto de perfil"
           >
             {guardandoFoto ? (
               <ActivityIndicator size="small" color={colors.primary} />
@@ -447,8 +453,10 @@ export const PerfilScreen = () => {
           style={styles.btnModificarPerfilCompleto}
           onPress={abrirModalModificarPerfil}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Modificar ficha de operador"
         >
-          <MaterialCommunityIcons name="account-cog" size={18} color="#fff" style={{ marginRight: 8 }} />
+          <MaterialCommunityIcons name="account-cog" size={18} color={colors.text} style={{ marginRight: 8 }} />
           <Text style={styles.txtModificarPerfilCompleto}>MODIFICAR FICHA DE OPERADOR</Text>
         </TouchableOpacity>
       </View>
@@ -499,7 +507,7 @@ export const PerfilScreen = () => {
               onPress={() => (navigation as any).navigate('Equipos')}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="shield-account" size={16} color="#fff" style={{ marginRight: 6 }} />
+              <MaterialCommunityIcons name="shield-account" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
               <Text style={styles.txtBtnVerMiEquipoPerfil}>VER DETALLES DE MI ESCUADRA</Text>
             </TouchableOpacity>
           </View>
@@ -728,7 +736,12 @@ export const PerfilScreen = () => {
       </View>
 
       {/* Botón Cerrar Sesión */}
-      <TouchableOpacity style={styles.btnCerrarSesion} onPress={confirmarLogout}>
+      <TouchableOpacity
+        style={styles.btnCerrarSesion}
+        onPress={confirmarLogout}
+        accessibilityRole="button"
+        accessibilityLabel="Cerrar sesión"
+      >
         <MaterialCommunityIcons name="logout" size={18} color={colors.danger} style={{ marginRight: 8 }} />
         <Text style={styles.textoCerrarSesion}>CERRAR SESIÓN</Text>
       </TouchableOpacity>
@@ -868,7 +881,7 @@ export const PerfilScreen = () => {
                           <MaterialCommunityIcons
                             name="check"
                             size={14}
-                            color="#fff"
+                            color={colors.text}
                             style={{ marginLeft: 3 }}
                           />
                         )}
@@ -913,7 +926,7 @@ export const PerfilScreen = () => {
                         <MaterialCommunityIcons
                           name={info.icon}
                           size={18}
-                          color={activo ? '#fff' : colors.textMuted}
+                          color={activo ? colors.text : colors.textMuted}
                           style={{ marginRight: 6 }}
                         />
                         <Text style={[styles.modalRolTxt, activo && styles.modalRolTxtActivo]}>
@@ -923,7 +936,7 @@ export const PerfilScreen = () => {
                           <MaterialCommunityIcons
                             name="check"
                             size={14}
-                            color="#fff"
+                            color={colors.text}
                             style={{ marginLeft: 3 }}
                           />
                         )}
@@ -960,10 +973,10 @@ export const PerfilScreen = () => {
                 disabled={guardandoFicha}
               >
                 {guardandoFicha ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <MaterialCommunityIcons name="content-save" size={16} color="#fff" />
+                    <MaterialCommunityIcons name="content-save" size={16} color={colors.onPrimary} />
                     <Text style={styles.modalTxtGuardar}>GUARDAR CAMBIOS</Text>
                   </View>
                 )}
@@ -1058,7 +1071,7 @@ export const PerfilScreen = () => {
                 onPress={tomarFotoCamara}
                 disabled={guardandoFoto}
               >
-                <MaterialCommunityIcons name="camera" size={20} color="#fff" />
+                <MaterialCommunityIcons name="camera" size={20} color={colors.text} />
                 <Text style={styles.modalTxtCamara}>TOMAR FOTO</Text>
               </TouchableOpacity>
 
@@ -1067,7 +1080,7 @@ export const PerfilScreen = () => {
                 onPress={seleccionarFotoGaleria}
                 disabled={guardandoFoto}
               >
-                <MaterialCommunityIcons name="image" size={20} color="#fff" />
+                <MaterialCommunityIcons name="image" size={20} color={colors.onPrimary} />
                 <Text style={styles.modalTxtGaleria}>GALERÍA</Text>
               </TouchableOpacity>
             </View>
@@ -1107,7 +1120,7 @@ export const PerfilScreen = () => {
                 disabled={guardandoFoto || !nuevoAvatar.trim()}
               >
                 {guardandoFoto ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <Text style={styles.modalTxtGuardar}>GUARDAR URL</Text>
                 )}
@@ -1155,7 +1168,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingTop: 50,
+    paddingTop: 16,
     paddingBottom: 40,
   },
   centroCargando: {
@@ -1208,7 +1221,7 @@ const styles = StyleSheet.create({
   callsign: {
     color: colors.text,
     fontSize: 24,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 1,
   },
   emailText: {
@@ -1231,7 +1244,7 @@ const styles = StyleSheet.create({
   apodoPersonalizadoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     paddingHorizontal: 12,
@@ -1309,7 +1322,7 @@ const styles = StyleSheet.create({
   seccionTitulo: {
     color: colors.textSecondary,
     fontSize: 11,
-    fontWeight: '800',
+    fontFamily: fonts.displayBold,
     letterSpacing: 1.5,
   },
   btnEditarRolesTxt: {
@@ -1416,7 +1429,7 @@ const styles = StyleSheet.create({
   },
   badgeMiembro: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(56, 161, 105, 0.2)',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
@@ -1445,7 +1458,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   txtBtnVerMiEquipoPerfil: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1454,7 +1467,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 8,
@@ -1506,7 +1519,7 @@ const styles = StyleSheet.create({
   statNumero: {
     color: colors.text,
     fontSize: 22,
-    fontWeight: '900',
+    fontFamily: fonts.monoBold,
     fontVariant: ['tabular-nums'],
     marginBottom: 4,
   },
@@ -1570,16 +1583,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   resultadoVictoria: {
-    backgroundColor: 'rgba(46, 125, 50, 0.25)',
-    borderColor: '#4CAF50',
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
   },
   resultadoDerrota: {
-    backgroundColor: 'rgba(198, 40, 40, 0.25)',
-    borderColor: '#E53935',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   resultadoEmpate: {
-    backgroundColor: 'rgba(239, 108, 0, 0.25)',
-    borderColor: '#FFB300',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warning,
   },
   resultadoTexto: {
     fontSize: 10,
@@ -1587,13 +1600,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   textoVictoria: {
-    color: '#81C784',
+    color: colors.success,
   },
   textoDerrota: {
-    color: '#EF9A9A',
+    color: colors.danger,
   },
   textoEmpate: {
-    color: '#FFE082',
+    color: colors.warning,
   },
   historialMetaGrid: {
     gap: 6,
@@ -1655,7 +1668,7 @@ const styles = StyleSheet.create({
   tagObtenidaBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1702,7 +1715,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: 20,
   },
@@ -1761,7 +1774,7 @@ const styles = StyleSheet.create({
   modalApodoChipBloqueado: {
     opacity: 0.45,
     backgroundColor: 'rgba(0,0,0,0.2)',
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.surfaceSubtle,
   },
   modalApodoTxt: {
     color: colors.textMuted,
@@ -1833,9 +1846,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txtFotoModal: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   modalRolesGrid: {
@@ -1886,7 +1899,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardBorder,
   },
   modalRegionItemActivo: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 6,
   },
   modalRegionTexto: {
@@ -1927,9 +1940,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalTxtGuardar: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   modalAvatarOpcionesRow: {
     flexDirection: 'row',
@@ -1947,7 +1960,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalTxtCamara: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1963,9 +1976,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalTxtGaleria: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   modalSeparadorRow: {
@@ -1989,8 +2002,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerBorder,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
