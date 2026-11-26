@@ -1,0 +1,116 @@
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../theme/colors';
+import { fonts } from '../../../theme/typography';
+
+export const modalSheetStyles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 18,
+    width: '100%',
+    maxHeight: '85%',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  modalHeaderQr: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    width: '100%',
+  },
+  modalTitulo: {
+    color: colors.primary,
+    fontSize: 15,
+    fontFamily: fonts.displayBold,
+    letterSpacing: 0.5,
+  },
+  modalSubtitulo: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  modalBotones: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  modalBotonCancelar: {
+    flex: 1,
+    backgroundColor: colors.inputBg,
+    borderRadius: 8,
+    minHeight: 44,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  modalTextoCancelar: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  modalBotonConfirmar: {
+    flex: 2,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    minHeight: 44,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTextoConfirmar: {
+    color: colors.onPrimary,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  botonDeshabilitado: {
+    opacity: 0.5,
+  },
+  inputModalLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  inputModal: {
+    backgroundColor: colors.inputBg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    color: colors.text,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+  },
+  inputModalArea: {
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  btnCerrarModalTacsop: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    minHeight: 44,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    width: '100%',
+  },
+  txtBtnCerrarModalTacsop: {
+    color: colors.onPrimary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+});

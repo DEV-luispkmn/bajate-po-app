@@ -7,16 +7,13 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Modal,
-  TextInput,
   Image,
   Share,
-  KeyboardAvoidingView,
   Platform,
   Switch,
   RefreshControl,
   Linking,
   Keyboard,
-  Pressable,
 } from 'react-native';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -63,16 +60,38 @@ import {
   PreferenciasRecordatorioPartida,
 } from '../../services/deviceNotifications.service';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { TacticalDateTimePicker } from '../../components/TacticalDateTimePicker';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import { obtenerEstiloFama } from '../../utils/fama.util';
 import { MesaCronometrajeFase1 } from './components/MesaCronometrajeFase1';
 import { MisionesCombateFase2 } from './components/MisionesCombateFase2';
 import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
+import { ModalAlistamientoMilsim } from './components/ModalAlistamientoMilsim';
+import {
+  ModalSeleccionRol,
+  ModalQrAcceso,
+  ModalIniciarPartida,
+} from './components/ModalesInscripcionEvento';
+import {
+  ModalEditarEvento,
+  ModalCancelarEvento,
+  ModalHabilitarEscuadras,
+  ModalDesignarLiderBando,
+  ModalNombrarCoorganizador,
+} from './components/ModalesGestionOrganizador';
+import {
+  ModalLimitesCrono,
+  ModalTacsopReglamento,
+  ModalCronografoStaff,
+} from './components/ModalesReglamentoYCrono';
+import {
+  ModalMapaTactico,
+  ModalAlertaBlindMan,
+  ModalAsignarMision,
+  ModalFotoMision,
+} from './components/ModalesTacticosYEmergencia';
 import type { NavigationProp } from '../../navigation/types';
-
-const ROLES_TACTICOS = ['ASALTO', 'CQB', 'SNIPER', 'DMR', 'APOYO', 'MÉDICO'];
 
 export const EventoDetalleScreen = () => {
   const route = useRoute<any>();
@@ -677,6 +696,7 @@ export const EventoDetalleScreen = () => {
   };
 
   const handleCambiarBandoDirecto = async (nuevoBandoId: number) => {
+    if (detalle?.evento.tipo === 'VERSUS') return;
     try {
       setUniendose(true);
       await unirseEventoApi({
@@ -1341,6 +1361,7 @@ export const EventoDetalleScreen = () => {
   const soyOrganizador = esCreadorOrganizador || !!esCoorganizador;
   const esTerminadoOCancelado = evento.estado === 'FINALIZADO' || evento.estado === 'CANCELADO';
   const esPichanga = evento.tipo === 'PICHANGA';
+  const esVersus = evento.tipo === 'VERSUS';
   const esMasivo = evento.tipo === 'EVENTO_MASIVO';
   const miBandoLiderado = evento.bandos?.find((b) => b.liderId === jugador?.id);
   const soyLiderDeBando = !!miBandoLiderado;
@@ -1562,7 +1583,7 @@ export const EventoDetalleScreen = () => {
                     { color: evento.privacidad === 'CERRADO' ? colors.warning : colors.success },
                   ]}
                 >
-                  {evento.privacidad === 'CERRADO' ? 'PRIVADA' : 'PÚBLICA'}
+                  {esVersus ? 'SOLO ESCUADRAS' : evento.privacidad === 'CERRADO' ? 'PRIVADA' : 'PÚBLICA'}
                 </Text>
               </View>
             </View>
@@ -1579,7 +1600,7 @@ export const EventoDetalleScreen = () => {
               onPress={handleCompartirOperacion}
               activeOpacity={0.8}
             >
-              <MaterialCommunityIcons name="share-variant" size={16} color="#fff" style={{ marginRight: 6 }} />
+              <MaterialCommunityIcons name="share-variant" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
               <Text style={styles.txtBtnCompartir}>COMPARTIR OPERACIÓN</Text>
             </TouchableOpacity>
 
@@ -1643,7 +1664,7 @@ export const EventoDetalleScreen = () => {
                 Linking.openURL(url);
               }}
             >
-              <MaterialCommunityIcons name="google-maps" size={16} color="#fff" />
+              <MaterialCommunityIcons name="google-maps" size={16} color={colors.text} />
               <Text style={styles.txtBtnGpsApp}>GOOGLE MAPS</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -1653,8 +1674,8 @@ export const EventoDetalleScreen = () => {
                 Linking.openURL(url);
               }}
             >
-              <MaterialCommunityIcons name="waze" size={16} color="#000" />
-              <Text style={[styles.txtBtnGpsApp, { color: '#000' }]}>WAZE</Text>
+              <MaterialCommunityIcons name="waze" size={16} color={colors.onPrimary} />
+              <Text style={[styles.txtBtnGpsApp, { color: colors.onPrimary }]}>WAZE</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1700,7 +1721,7 @@ export const EventoDetalleScreen = () => {
                     Linking.openURL(url);
                   }}
                 >
-                  <MaterialCommunityIcons name="google-maps" size={16} color="#fff" />
+                  <MaterialCommunityIcons name="google-maps" size={16} color={colors.text} />
                   <Text style={styles.txtBtnGpsApp}>GOOGLE MAPS</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1710,8 +1731,8 @@ export const EventoDetalleScreen = () => {
                     Linking.openURL(url);
                   }}
                 >
-                  <MaterialCommunityIcons name="waze" size={16} color="#000" />
-                  <Text style={[styles.txtBtnGpsApp, { color: '#000' }]}>WAZE</Text>
+                  <MaterialCommunityIcons name="waze" size={16} color={colors.onPrimary} />
+                  <Text style={[styles.txtBtnGpsApp, { color: colors.onPrimary }]}>WAZE</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1970,7 +1991,7 @@ export const EventoDetalleScreen = () => {
               onValueChange={handleToggleDiaAntes}
               disabled={pasoDiaAntes || cargandoRecordatorio}
               trackColor={{ false: colors.inputBg, true: colors.primary }}
-              thumbColor={recordatorios.diaAntes ? '#fff' : colors.textMuted}
+              thumbColor={recordatorios.diaAntes ? colors.text : colors.textMuted}
             />
           </View>
 
@@ -1989,7 +2010,7 @@ export const EventoDetalleScreen = () => {
               onValueChange={handleToggle30Min}
               disabled={paso30Min || cargandoRecordatorio}
               trackColor={{ false: colors.inputBg, true: colors.primary }}
-              thumbColor={recordatorios.min30 ? '#fff' : colors.textMuted}
+              thumbColor={recordatorios.min30 ? colors.text : colors.textMuted}
             />
           </View>
 
@@ -2060,7 +2081,7 @@ export const EventoDetalleScreen = () => {
                         <MaterialCommunityIcons
                           name="lock"
                           size={16}
-                          color="#fff"
+                          color={colors.text}
                           style={{ marginRight: 6 }}
                         />
                         <Text style={styles.txtBtnToggleInscripciones}>
@@ -2113,7 +2134,7 @@ export const EventoDetalleScreen = () => {
                           onPress={() => setModalIniciarPartidaVisible(true)}
                           activeOpacity={0.85}
                         >
-                          <MaterialCommunityIcons name="play-circle" size={18} color="#fff" style={{ marginRight: 6 }} />
+                          <MaterialCommunityIcons name="play-circle" size={18} color={colors.onPrimary} style={{ marginRight: 6 }} />
                           <Text style={styles.textoBtnIniciarEventoPrincipal}>
                             {evento.estado === 'PROGRAMADO'
                               ? 'INICIAR OPERACIÓN (ELEGIR MODALIDAD)'
@@ -2128,7 +2149,7 @@ export const EventoDetalleScreen = () => {
                             setModalQrVisible(true);
                           }}
                         >
-                          <MaterialCommunityIcons name="qrcode" size={16} color="#fff" style={{ marginRight: 6 }} />
+                          <MaterialCommunityIcons name="qrcode" size={16} color={colors.text} style={{ marginRight: 6 }} />
                           <Text style={styles.textoBtnGenerarQr}>GENERAR QR PARA ATRASADOS</Text>
                         </TouchableOpacity>
                       </>
@@ -2216,7 +2237,7 @@ export const EventoDetalleScreen = () => {
                             disabled={cambiandoInscripciones}
                             activeOpacity={0.8}
                           >
-                            <MaterialCommunityIcons name="lock-open-variant" size={15} color="#fff" style={{ marginRight: 6 }} />
+                            <MaterialCommunityIcons name="lock-open-variant" size={15} color={colors.text} style={{ marginRight: 6 }} />
                             <Text style={styles.txtBtnReabrirInscripcionesConfig}>REABRIR INSCRIPCIONES DE LA OPERACIÓN</Text>
                           </TouchableOpacity>
                         )}
@@ -2241,10 +2262,10 @@ export const EventoDetalleScreen = () => {
                           activeOpacity={0.8}
                         >
                           {finalizandoEvento ? (
-                            <ActivityIndicator color="#fff" size="small" />
+                            <ActivityIndicator color={colors.text} size="small" />
                           ) : (
                             <>
-                              <MaterialCommunityIcons name="flag-checkered" size={16} color="#fff" style={{ marginRight: 6 }} />
+                              <MaterialCommunityIcons name="flag-checkered" size={16} color={colors.text} style={{ marginRight: 6 }} />
                               <Text style={styles.txtBtnFinalizarEventoConfig}>FINALIZAR EVENTO OFICIALMENTE</Text>
                             </>
                           )}
@@ -2300,7 +2321,7 @@ export const EventoDetalleScreen = () => {
       {soyLiderDeBando && !soyOrganizador && (
         <View style={styles.panelLiderFaccionCard}>
           <View style={styles.panelOrganizadorHeader}>
-            <MaterialCommunityIcons name="shield-star" size={20} color="#F59E0B" style={{ marginRight: 6 }} />
+            <MaterialCommunityIcons name="shield-star" size={20} color={colors.warning} style={{ marginRight: 6 }} />
             <Text style={styles.tituloPanelLiderFaccion}>
               COMANDANCIA DE FACCIÓN: {miBandoLiderado?.nombre.toUpperCase()}
             </Text>
@@ -2320,6 +2341,9 @@ export const EventoDetalleScreen = () => {
             <TouchableOpacity
               style={styles.btnNuevaPartidaMini}
               onPress={() => setModalIniciarPartidaVisible(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Crear nueva partida"
             >
               <MaterialCommunityIcons name="plus-circle-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
               <Text style={styles.txtNuevaPartidaMini}>NUEVA PARTIDA</Text>
@@ -2478,7 +2502,7 @@ export const EventoDetalleScreen = () => {
                           ))}
                           {p.mvps?.filter((m) => m.bandoId === bando1?.id).map((m) => (
                             <View key={m.jugadorId} style={styles.cardPartidaMvpPill}>
-                              <MaterialCommunityIcons name="star" size={10} color="#F59E0B" />
+                              <MaterialCommunityIcons name="star" size={10} color={colors.warning} />
                               <Text style={styles.txtCardPartidaMvpPill} numberOfLines={1}>
                                 MVP: {m.alias} ({m.votos}v)
                               </Text>
@@ -2503,7 +2527,7 @@ export const EventoDetalleScreen = () => {
                           ))}
                           {p.mvps?.filter((m) => m.bandoId === bando2?.id).map((m) => (
                             <View key={m.jugadorId} style={styles.cardPartidaMvpPill}>
-                              <MaterialCommunityIcons name="star" size={10} color="#F59E0B" />
+                              <MaterialCommunityIcons name="star" size={10} color={colors.warning} />
                               <Text style={styles.txtCardPartidaMvpPill} numberOfLines={1}>
                                 MVP: {m.alias} ({m.votos}v)
                               </Text>
@@ -2520,7 +2544,7 @@ export const EventoDetalleScreen = () => {
                       <MaterialCommunityIcons
                         name={plazoMvpExpirado ? 'clock-alert-outline' : 'trophy-award'}
                         size={11}
-                        color={plazoMvpExpirado ? colors.textMuted : '#F59E0B'}
+                        color={plazoMvpExpirado ? colors.textMuted: colors.warning}
                         style={{ marginRight: 4 }}
                       />
                       <Text style={[styles.txtEstadoVotacionMvp, plazoMvpExpirado && { color: colors.textMuted }]}>
@@ -2548,7 +2572,7 @@ export const EventoDetalleScreen = () => {
                         size={14}
                         color={
                           esFinalizada
-                            ? '#F59E0B'
+                            ? colors.warning
                             : miJugadorEnPartida
                             ? colors.primary
                             : colors.success
@@ -2558,7 +2582,7 @@ export const EventoDetalleScreen = () => {
                       <Text
                         style={[
                           styles.textoEnVivo,
-                          esFinalizada && { color: '#F59E0B' },
+                          esFinalizada && { color: colors.warning },
                           !esFinalizada && miJugadorEnPartida && { color: colors.primary },
                           !esFinalizada && !miJugadorEnPartida && { color: colors.success },
                         ]}
@@ -2629,10 +2653,10 @@ export const EventoDetalleScreen = () => {
                 onPress={() => abrirModalUnirse(null)}
               >
                 {uniendose ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.text} size="small" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="account-plus" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="account-plus" size={16} color={colors.text} style={{ marginRight: 6 }} />
                     <Text style={styles.txtAlistarsePichangaMini}>ALISTARME A LA PICHANGA</Text>
                   </>
                 )}
@@ -2667,30 +2691,48 @@ export const EventoDetalleScreen = () => {
               onPress={() => iniciarAlistamientoMilsim(null)}
               activeOpacity={0.85}
             >
-              <MaterialCommunityIcons name="shield-account" size={24} color="#000" style={{ marginRight: 10 }} />
+              <MaterialCommunityIcons name="shield-account" size={24} color={colors.onPrimary} style={{ marginRight: 10 }} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.txtBtnAlistamientoMilsimPrincipal}>INSCRIBIRSE A LA OPERACIÓN</Text>
                 <Text style={styles.txtSubBtnAlistamientoMilsimPrincipal}>
                   Reglamento TACSOP, réplicas y elección de facción
                 </Text>
               </View>
-              <MaterialCommunityIcons name="chevron-right" size={24} color="#000" />
+              <MaterialCommunityIcons name="chevron-right" size={24} color={colors.onPrimary} />
             </TouchableOpacity>
           )}
 
-          {(esMasivo && !soyOrganizador && miBando?.bandoId
-            ? (evento.bandos || []).filter((b) => b.id === miBando.bandoId)
-            : (evento.bandos || [])
-          ).map((bando) => {
-            const jugadoresDelBando = jugadores.filter((j) => j.bandoId === bando.id);
-            const estoyEnEsteBando = miBando?.bandoId === bando.id;
-            const tienePermisoGestionar = soyOrganizador || bando.liderId === jugador?.id;
-            const estaExpandida =
-              faccionesExpandidas[bando.id] !== undefined
-                ? faccionesExpandidas[bando.id]
-                : estoyEnEsteBando;
+          {(() => {
+            const bandosEvento = evento.bandos || [];
+            const bandoVersusAId = esVersus ? bandosEvento[0]?.id : undefined;
+            const bandoVersusBId = esVersus ? bandosEvento[1]?.id : undefined;
+            const miEquipoId = jugador?.equipoId;
+            const soyDeEquipoA = Boolean(
+              esVersus && miEquipoId && evento.equipoAId && Number(miEquipoId) === Number(evento.equipoAId),
+            );
+            const soyDeEquipoB = Boolean(
+              esVersus && miEquipoId && evento.equipoBId && Number(miEquipoId) === Number(evento.equipoBId),
+            );
+            const bandosVisibles =
+              esMasivo && !soyOrganizador && miBando?.bandoId
+                ? bandosEvento.filter((b) => b.id === miBando.bandoId)
+                : bandosEvento;
 
-            return (
+            return bandosVisibles.map((bando) => {
+              const jugadoresDelBando = jugadores.filter((j) => j.bandoId === bando.id);
+              const estoyEnEsteBando = miBando?.bandoId === bando.id;
+              const esBandoRivalVersus =
+                esVersus &&
+                ((soyDeEquipoA && bando.id === bandoVersusBId) ||
+                  (soyDeEquipoB && bando.id === bandoVersusAId));
+              const bloqueadoCambioEnVersus = esVersus && Boolean(miBando) && !estoyEnEsteBando;
+              const tienePermisoGestionar = soyOrganizador || bando.liderId === jugador?.id;
+              const estaExpandida =
+                faccionesExpandidas[bando.id] !== undefined
+                  ? faccionesExpandidas[bando.id]
+                  : estoyEnEsteBando;
+
+              return (
               <View key={bando.id} style={styles.bandoCard}>
                 <TouchableOpacity
                   style={styles.bandoHeaderTouch}
@@ -2736,7 +2778,7 @@ export const EventoDetalleScreen = () => {
                 {/* Líder de Facción (Especial para eventos masivos o si está asignado) */}
                 {esMasivo && (
                   <View style={styles.liderFaccionRow}>
-                    <MaterialCommunityIcons name="star-shooting" size={16} color="#F59E0B" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="star-shooting" size={16} color={colors.warning} style={{ marginRight: 6 }} />
                     <Text style={styles.txtLiderFaccion}>
                       Líder:{' '}
                       <Text style={styles.txtLiderFaccionDestacado}>
@@ -2771,7 +2813,7 @@ export const EventoDetalleScreen = () => {
                           {esMasivo ? '✓ TU FACCIÓN ACTUAL' : '✓ TU BANDO ACTUAL'}
                         </Text>
                       </View>
-                      {evento.estado === 'PROGRAMADO' && (
+                      {esMasivo && evento.estado === 'PROGRAMADO' && (
                         <TouchableOpacity
                           style={[styles.btnBajarseBandoMini, desinscribiendose && styles.botonDeshabilitado]}
                           onPress={handleBajarseOperacion}
@@ -2781,7 +2823,7 @@ export const EventoDetalleScreen = () => {
                         >
                           <MaterialCommunityIcons name="account-minus" size={13} color={colors.danger} style={{ marginRight: 3 }} />
                           <Text style={styles.txtBtnBajarseBandoMini}>
-                            {esMasivo ? 'BAJARME DE LA FACCIÓN' : 'BAJARME'}
+                            BAJARME DE LA FACCIÓN
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -2789,11 +2831,25 @@ export const EventoDetalleScreen = () => {
                   ) : esMasivo && !miBando ? (
                     // En la vista de detalle inicial de eventos masivos, no se muestra botón directo de alistarse por bando
                     null
+                  ) : esBandoRivalVersus ? (
+                    <View style={styles.bannerInscripcionCerradaMini}>
+                      <MaterialCommunityIcons name="shield-off-outline" size={13} color={colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={styles.txtBannerInscripcionCerradaMini}>
+                        Escuadra rival — Solo miembros de este equipo
+                      </Text>
+                    </View>
+                  ) : bloqueadoCambioEnVersus ? (
+                    <View style={styles.bannerInscripcionCerradaMini}>
+                      <MaterialCommunityIcons name="lock" size={13} color={colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={styles.txtBannerInscripcionCerradaMini}>
+                        Ya estás asignado a tu bando en este Versus
+                      </Text>
+                    </View>
                   ) : (
                     bandoLleno ? (
                       <View style={styles.bannerInscripcionCerradaMini}>
-                        <MaterialCommunityIcons name="account-lock" size={13} color="#EF4444" style={{ marginRight: 4 }} />
-                        <Text style={[styles.txtBannerInscripcionCerradaMini, { color: '#EF4444' }]}>
+                        <MaterialCommunityIcons name="account-lock" size={13} color={colors.danger} style={{ marginRight: 4 }} />
+                        <Text style={[styles.txtBannerInscripcionCerradaMini, { color: colors.danger }]}>
                           {esMasivo ? 'Facción completa (cupo lleno)' : 'Bando completo'}
                         </Text>
                       </View>
@@ -2847,7 +2903,7 @@ export const EventoDetalleScreen = () => {
                                 setModalEscuadrasVisible(true);
                               }}
                             >
-                              <MaterialCommunityIcons name="lightning-bolt" size={12} color="#000" />
+                              <MaterialCommunityIcons name="lightning-bolt" size={12} color={colors.onPrimary} />
                               <Text style={styles.txtBtnHabilitarEscuadrasMini}>HABILITAR X</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -2876,7 +2932,7 @@ export const EventoDetalleScreen = () => {
                       <View style={{ marginBottom: 8 }}>
                         {tieneCronoAprobado ? (
                           <View style={styles.bannerCronoEscuadraHabilitado}>
-                            <MaterialCommunityIcons name="shield-check" size={15} color="#10B981" style={{ marginRight: 6 }} />
+                            <MaterialCommunityIcons name="shield-check" size={15} color={colors.success} style={{ marginRight: 6 }} />
                             <Text style={styles.txtBannerCronoEscuadraHabilitado}>
                               HABILITADO PARA DESPLIEGUE: Réplicas homologadas. Asignación a escuadras habilitada.
                             </Text>
@@ -2901,9 +2957,12 @@ export const EventoDetalleScreen = () => {
                       </View>
                     ) : (!bando.escuadras || bando.escuadras.length === 0) ? (
                       <View style={styles.sinEscuadrasBox}>
-                        <Text style={styles.txtSinEscuadras}>
-                          ℹ️ Aún no se han desplegado escuadras en esta facción. El comandante puede crearlas con los botones superiores.
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                          <MaterialCommunityIcons name="information-outline" size={15} color={colors.textSecondary} />
+                          <Text style={[styles.txtSinEscuadras, { flex: 1 }]}>
+                            Aún no se han desplegado escuadras en esta facción. El comandante puede crearlas con los botones superiores.
+                          </Text>
+                        </View>
                       </View>
                     ) : (
                       bando.escuadras.map((sq) => {
@@ -2996,7 +3055,7 @@ export const EventoDetalleScreen = () => {
                                   <MaterialCommunityIcons
                                     name={(!tieneCronoAprobado && !soyOrganizador) ? 'lock' : 'shield-plus'}
                                     size={13}
-                                    color="#fff"
+                                    color={colors.text}
                                     style={{ marginRight: 4 }}
                                   />
                                   <Text style={styles.txtBtnUnirseEscuadra}>
@@ -3054,7 +3113,8 @@ export const EventoDetalleScreen = () => {
                 )}
               </View>
             );
-          })}
+          });
+          })()}
 
           {/* Si hay operadores inscritos sin bando asignado */}
           {jugadores.some((j) => !j.bandoId) && (
@@ -3093,7 +3153,7 @@ export const EventoDetalleScreen = () => {
           >
             <View style={styles.blindManFranjaPeligro}>
               <View style={styles.blindManIconCircle}>
-                <MaterialCommunityIcons name="alert-octagon" size={24} color="#fff" />
+                <MaterialCommunityIcons name="alert-octagon" size={24} color={colors.text} />
               </View>
               <View style={styles.blindManTextosCol}>
                 <Text style={styles.txtAlertaEmergenciaHeader}>PROTOCOLO DE EMERGENCIA REAL</Text>
@@ -3106,2054 +3166,209 @@ export const EventoDetalleScreen = () => {
         </View>
       )}
 
-      {/* Modal para unirse con selección de rol */}
-      <Modal
+      <ModalSeleccionRol
         visible={modalUnirseVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalUnirseVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitulo}>SELECCIONA TU ROL TÁCTICO</Text>
-            <Text style={styles.modalSubtitulo}>
-              {esMasivo
-                ? 'Selecciona 1 rol específico para este despliegue masivo:'
-                : 'Elige tu rol o especialidad en el combate:'}
-            </Text>
+        onClose={() => setModalUnirseVisible(false)}
+        esMasivo={esMasivo}
+        rolesSeleccionados={rolesSeleccionados}
+        onToggleRol={toggleRolUnirse}
+        uniendose={uniendose}
+        onConfirmar={confirmarUnirseBando}
+      />
 
-            <View style={styles.rolesModalGrid}>
-              {ROLES_TACTICOS.map((rol) => {
-                const activo = rolesSeleccionados.includes(rol);
-                return (
-                  <TouchableOpacity
-                    key={rol}
-                    style={[styles.rolModalChip, activo && styles.rolModalChipActivo]}
-                    onPress={() => toggleRolUnirse(rol)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.rolModalTexto, activo && styles.rolModalTextoActivo]}>
-                      {rol}
-                    </Text>
-                    {activo && (
-                      <MaterialCommunityIcons
-                        name="check"
-                        size={14}
-                        color="#fff"
-                        style={{ marginLeft: 3 }}
-                      />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => setModalUnirseVisible(false)}
-              >
-                <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBotonConfirmar, uniendose && styles.botonDeshabilitado]}
-                disabled={uniendose}
-                onPress={confirmarUnirseBando}
-              >
-                {uniendose ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.modalTextoConfirmar}>CONFIRMAR ALISTAMIENTO</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal Wizard de Alistamiento Milsim (4 Pasos) */}
-      <Modal
+      <ModalAlistamientoMilsim
         visible={modalAlistamientoMilsimVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          if (!alistandoseMilsim) setModalAlistamientoMilsimVisible(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={Keyboard.dismiss}
-            accessible={false}
-          />
-          <View style={styles.modalContentAlistamiento}>
-            {/* Header del Modal */}
-            <Pressable
-              style={styles.headerAlistamiento}
-              onPress={Keyboard.dismiss}
-              accessible={false}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <MaterialCommunityIcons name="shield-check" size={20} color={colors.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.tituloAlistamiento}>PROTOCOLO DE ALISTAMIENTO</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalAlistamientoMilsimVisible(false);
-                }}
-                disabled={alistandoseMilsim}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <MaterialCommunityIcons name="close" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Pressable>
+        onClose={() => setModalAlistamientoMilsimVisible(false)}
+        evento={evento}
+        jugadores={jugadores}
+        pasoAlistamiento={pasoAlistamiento}
+        setPasoAlistamiento={setPasoAlistamiento}
+        reglasAceptadas={reglasAceptadas}
+        setReglasAceptadas={setReglasAceptadas}
+        bandoAlistamientoId={bandoAlistamientoId}
+        setBandoAlistamientoId={setBandoAlistamientoId}
+        replicasAlistamiento={replicasAlistamiento}
+        actualizarReplicaAlistamiento={actualizarReplicaAlistamiento}
+        agregarReplicaSecundaria={agregarReplicaSecundaria}
+        agregarReplicaPrimaria2={agregarReplicaPrimaria2}
+        eliminarReplicaAlistamiento={eliminarReplicaAlistamiento}
+        notifDiaAntesAlistamiento={notifDiaAntesAlistamiento}
+        setNotifDiaAntesAlistamiento={setNotifDiaAntesAlistamiento}
+        notif30MinAlistamiento={notif30MinAlistamiento}
+        setNotif30MinAlistamiento={setNotif30MinAlistamiento}
+        alistandoseMilsim={alistandoseMilsim}
+        onConfirmarAlistamiento={confirmarAlistamientoMilsimFinal}
+      />
 
-            {/* Stepper horizontal (1: Reglas, 2: Réplicas, 3: Facción, 4: Revisión) */}
-            <View style={styles.stepperContainer}>
-              {[
-                { paso: 1, label: 'Reglas' },
-                { paso: 2, label: 'Réplicas' },
-                { paso: 3, label: 'Facción' },
-                { paso: 4, label: 'Revisión' },
-              ].map((st) => {
-                const activo = pasoAlistamiento === st.paso;
-                const completado = pasoAlistamiento > st.paso;
-                return (
-                  <View key={st.paso} style={styles.stepItem}>
-                    <View
-                      style={[
-                        styles.stepCircle,
-                        activo && styles.stepCircleActivo,
-                        completado && styles.stepCircleCompletado,
-                      ]}
-                    >
-                      {completado ? (
-                        <MaterialCommunityIcons name="check" size={13} color="#fff" />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.txtStepNumber,
-                            activo && styles.txtStepNumberActivo,
-                          ]}
-                        >
-                          {st.paso}
-                        </Text>
-                      )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.txtStepLabel,
-                        activo && styles.txtStepLabelActivo,
-                        completado && styles.txtStepLabelCompletado,
-                      ]}
-                    >
-                      {st.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            {/* CONTENIDO SEGÚN EL PASO ACTUAL */}
-            <ScrollView
-              style={{ maxHeight: 420 }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-            >
-              {/* PASO 1: REGLAS Y CONDICIONES TACSOP */}
-              {pasoAlistamiento === 1 && (
-                <View style={styles.cuerpoPasoAlistamiento}>
-                  <Text style={styles.subtituloPasoAlistamiento}>
-                    1. REGLAMENTO TACSOP Y CONDICIONES
-                  </Text>
-                  <Text style={styles.descPasoAlistamiento}>
-                    Revisa las normas oficiales y confirma tu compromiso antes de ingresar a la operación:
-                  </Text>
-
-                  {/* Tabla de límites de crono configurados */}
-                  <View style={styles.tacsopBoxAlistamiento}>
-                    <Text style={styles.tacsopBoxTitulo}>LÍMITES DE CRONO HOMOLOGADOS (0.20g):</Text>
-                    {(() => {
-                      const limites = (evento.tacsop?.limitesCrono && evento.tacsop.limitesCrono.length > 0)
-                        ? evento.tacsop.limitesCrono
-                        : [
-                            { categoria: 'ASALTO', fpsMax: 400, joulesMax: 1.49, medMetros: 5, modoDisparo: 'SEMI' },
-                            { categoria: 'SOPORTE', fpsMax: 400, joulesMax: 1.49, medMetros: 15, modoDisparo: 'AUTO' },
-                            { categoria: 'DMR', fpsMax: 450, joulesMax: 1.88, medMetros: 20, modoDisparo: 'SEMI' },
-                            { categoria: 'SNIPER', fpsMax: 550, joulesMax: 2.81, medMetros: 30, modoDisparo: 'BOLT' },
-                            { categoria: 'PISTOLA', fpsMax: 328, joulesMax: 1.00, medMetros: 0, modoDisparo: 'SEMI' },
-                          ];
-                      return (
-                        <View style={styles.tablaCronoAlistamiento}>
-                          {limites.map((l: any, idx: number) => (
-                            <View key={idx} style={styles.filaCronoAlistamiento}>
-                              <Text style={styles.colCatCrono}>{l.categoria}:</Text>
-                              <Text style={styles.colStatsCrono}>
-                                {l.fpsMax} FPS ({l.joulesMax} J) | MED {l.medMetros}m | {l.modoDisparo}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      );
-                    })()}
-                  </View>
-
-                  {/* Reglas Milsim: Vidas, torniquetes, pañuelo de muerte */}
-                  <View style={styles.tacsopBoxAlistamiento}>
-                    <Text style={styles.tacsopBoxTitulo}>NORMAS DE COMBATE Y SEGURIDAD:</Text>
-                    <View style={styles.reglaItemRow}>
-                      <MaterialCommunityIcons name="heart-pulse" size={15} color={colors.danger} style={{ marginRight: 6 }} />
-                      <Text style={styles.txtReglaItem}>
-                        Vidas por operador: <Text style={{ color: '#fff', fontWeight: 'bold' }}>{evento.tacsop?.vidasMax || 2}</Text> (requiere torniquete homologado).
-                      </Text>
-                    </View>
-                    <View style={styles.reglaItemRow}>
-                      <MaterialCommunityIcons name="clock-outline" size={15} color={colors.warning} style={{ marginRight: 6 }} />
-                      <Text style={styles.txtReglaItem}>
-                        Tiempo de desangrado: <Text style={{ color: '#fff', fontWeight: 'bold' }}>{evento.tacsop?.tiempoDesangradoMin || 5} min</Text> para rescate de médico.
-                      </Text>
-                    </View>
-                    <View style={styles.reglaItemRow}>
-                      <MaterialCommunityIcons name="flag" size={15} color="#EF4444" style={{ marginRight: 6 }} />
-                      <Text style={styles.txtReglaItem}>
-                        Bajas: <Text style={{ color: '#fff', fontWeight: 'bold' }}>Pañuelo rojo obligatorio</Text> de día, luz roja/azul de noche.
-                      </Text>
-                    </View>
-                    <View style={styles.reglaItemRow}>
-                      <MaterialCommunityIcons name="radio-handheld" size={15} color={colors.primary} style={{ marginRight: 6 }} />
-                      <Text style={styles.txtReglaItem}>
-                        Comunicaciones: Radios Baofeng UV-5R con frecuencias asignadas por escuadra.
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Checkbox de Aceptación Obligatoria */}
-                  <TouchableOpacity
-                    style={[styles.checkboxContainer, reglasAceptadas && styles.checkboxContainerAceptado]}
-                    onPress={() => setReglasAceptadas(!reglasAceptadas)}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons
-                      name={reglasAceptadas ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={22}
-                      color={reglasAceptadas ? colors.primary : colors.textMuted}
-                    />
-                    <Text style={[styles.txtCheckbox, reglasAceptadas && styles.txtCheckboxAceptado]}>
-                      He leído y me comprometo a cumplir estrictamente el reglamento TACSOP y las normas de seguridad de esta operación.
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* PASO 2: DECLARACIÓN DE RÉPLICAS */}
-              {pasoAlistamiento === 2 && (
-                <View style={styles.cuerpoPasoAlistamiento}>
-                  <Text style={styles.subtituloPasoAlistamiento}>
-                    2. DECLARACIÓN DE RÉPLICAS EN DESPLIEGUE
-                  </Text>
-                  <Text style={styles.descPasoAlistamiento}>
-                    Registra las réplicas que llevarás a la mesa de cronómetro oficial:
-                  </Text>
-
-                  {replicasAlistamiento.map((rep) => {
-                    const fpsNum = parseInt(rep.fpsEstimado, 10) || 0;
-                    const joulesAprox = (0.5 * 0.0002 * Math.pow(fpsNum * 0.3048, 2)).toFixed(2);
-                    return (
-                      <View key={rep.id} style={styles.cardReplicaAlistamiento}>
-                        <View style={styles.headerReplicaAlistamiento}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <MaterialCommunityIcons
-                              name={rep.tipoReplica === 'SECUNDARIA' ? 'pistol' : 'crosshairs-gps'}
-                              size={16}
-                              color={colors.primary}
-                              style={{ marginRight: 6 }}
-                            />
-                            <Text style={styles.txtTipoReplicaHeader}>
-                              {rep.tipoReplica === 'PRIMARIA'
-                                ? 'RÉPLICA PRIMARIA'
-                                : rep.tipoReplica === 'PRIMARIA_2'
-                                ? 'SEGUNDA PRIMARIA'
-                                : rep.tipoReplica === 'SECUNDARIA'
-                                ? 'RÉPLICA SECUNDARIA'
-                                : 'RÉPLICA DE RESPALDO'}
-                            </Text>
-                          </View>
-                          {replicasAlistamiento.length > 1 && (
-                            <TouchableOpacity
-                              onPress={() => eliminarReplicaAlistamiento(rep.id)}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            >
-                              <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.danger} />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-
-                        {/* Selector de Categoría / Rol */}
-                        <Text style={styles.labelCampoReplica}>ROL / CATEGORÍA:</Text>
-                        <View style={styles.rolesGridReplica}>
-                          {['ASALTO', 'DMR', 'SNIPER', 'SOPORTE', 'PISTOLA'].map((cat) => {
-                            const seleccionado = rep.categoria === cat;
-                            return (
-                              <TouchableOpacity
-                                key={cat}
-                                style={[styles.chipCatReplica, seleccionado && styles.chipCatReplicaActivo]}
-                                onPress={() => actualizarReplicaAlistamiento(rep.id, 'categoria', cat)}
-                              >
-                                <Text style={[styles.txtChipCatReplica, seleccionado && styles.txtChipCatReplicaActivo]}>
-                                  {cat}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-
-                        {/* Modelo o Nombre */}
-                        <Text style={styles.labelCampoReplica}>MODELO O NOMBRE DE LA RÉPLICA:</Text>
-                        <TextInput
-                          style={styles.inputReplicaModelo}
-                          value={rep.modelo}
-                          onChangeText={(txt) => actualizarReplicaAlistamiento(rep.id, 'modelo', txt)}
-                          placeholder="ej. Specna Arms M4, Tokyo Marui Hi-Capa, etc."
-                          placeholderTextColor={colors.textMuted}
-                        />
-
-                        {/* FPS Estimado y Joules */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 }}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.labelCampoReplica}>FPS ESTIMADO (0.20g):</Text>
-                            <TextInput
-                              style={styles.inputReplicaFps}
-                              value={rep.fpsEstimado}
-                              onChangeText={(txt) => actualizarReplicaAlistamiento(rep.id, 'fpsEstimado', txt.replace(/[^0-9]/g, ''))}
-                              placeholder="380"
-                              placeholderTextColor={colors.textMuted}
-                              keyboardType="numeric"
-                            />
-                          </View>
-                          <View style={styles.cajaJoulesCalculados}>
-                            <Text style={styles.txtSubJoules}>POTENCIA ESTIMADA:</Text>
-                            <Text style={styles.txtJoulesCalculados}>≈ {joulesAprox} J</Text>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
-
-                  {/* Botones para agregar réplicas secundarias o de respaldo */}
-                  <View style={styles.botonesAgregarReplicasRow}>
-                    {!replicasAlistamiento.some((r) => r.tipoReplica === 'SECUNDARIA') && (
-                      <TouchableOpacity style={styles.btnAgregarReplicaMini} onPress={agregarReplicaSecundaria}>
-                        <MaterialCommunityIcons name="plus" size={14} color={colors.primary} />
-                        <Text style={styles.txtBtnAgregarReplicaMini}>+ SECUNDARIA (PISTOLA)</Text>
-                      </TouchableOpacity>
-                    )}
-                    {replicasAlistamiento.length < 3 && (
-                      <TouchableOpacity style={styles.btnAgregarReplicaMini} onPress={agregarReplicaPrimaria2}>
-                        <MaterialCommunityIcons name="plus" size={14} color={colors.primary} />
-                        <Text style={styles.txtBtnAgregarReplicaMini}>+ 2DA PRIMARIA / RESPALDO</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* PASO 3: SELECCIÓN DE FACCIÓN TÁCTICA */}
-              {pasoAlistamiento === 3 && (
-                <View style={styles.cuerpoPasoAlistamiento}>
-                  <Text style={styles.subtituloPasoAlistamiento}>
-                    3. SELECCIÓN DE FACCIÓN (ORBAT)
-                  </Text>
-                  <Text style={styles.descPasoAlistamiento}>
-                    Elige el bando en el que combatirás durante la operación:
-                  </Text>
-
-                  {evento.bandos?.map((bando) => {
-                    const inscritos = jugadores.filter((j) => j.bandoId === bando.id);
-                    const cupoLleno = bando.cupoMax ? inscritos.length >= bando.cupoMax : false;
-                    const seleccionado = bandoAlistamientoId === bando.id;
-
-                    return (
-                      <TouchableOpacity
-                        key={bando.id}
-                        style={[
-                          styles.cardBandoAlistamiento,
-                          seleccionado && styles.cardBandoAlistamientoSeleccionado,
-                          cupoLleno && styles.cardBandoAlistamientoLleno,
-                        ]}
-                        disabled={cupoLleno}
-                        onPress={() => setBandoAlistamientoId(bando.id)}
-                        activeOpacity={0.8}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                            <View
-                              style={[
-                                styles.dotBandoAlistamiento,
-                                { backgroundColor: bando.colorHex || colors.primary },
-                              ]}
-                            />
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.nombreBandoAlistamiento, seleccionado && { color: colors.primary }]}>
-                                {bando.nombre}
-                              </Text>
-                              <Text style={styles.liderBandoAlistamiento}>
-                                Comandante: {bando.liderAlias || 'Sin líder asignado'}
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={styles.cupoBandoAlistamiento}>
-                              {inscritos.length}{bando.cupoMax ? `/${bando.cupoMax}` : ''} Op.
-                            </Text>
-                            {cupoLleno ? (
-                              <Text style={styles.badgeCupoLleno}>CUPO LLENO</Text>
-                            ) : seleccionado ? (
-                              <Text style={styles.badgeSeleccionado}>✓ ELEGIDA</Text>
-                            ) : null}
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* PASO 4: REVISIÓN FINAL Y NOTIFICACIONES */}
-              {pasoAlistamiento === 4 && (
-                <View style={styles.cuerpoPasoAlistamiento}>
-                  <Text style={styles.subtituloPasoAlistamiento}>
-                    4. REVISIÓN FINAL Y NOTIFICACIONES
-                  </Text>
-                  <Text style={styles.descPasoAlistamiento}>
-                    Verifica tus datos antes de formalizar tu alistamiento en el orden de batalla:
-                  </Text>
-
-                  {/* Resumen */}
-                  <View style={styles.resumenAlistamientoCard}>
-                    <View style={styles.filaResumenItem}>
-                      <Text style={styles.lblResumen}>FACCIÓN SELECCIONADA:</Text>
-                      <Text style={styles.valResumenDestacado}>
-                        {evento.bandos?.find((b) => b.id === bandoAlistamientoId)?.nombre || 'No seleccionada'}
-                      </Text>
-                    </View>
-                    <View style={styles.filaResumenItem}>
-                      <Text style={styles.lblResumen}>ARMAMENTO RÉPLICA:</Text>
-                      {replicasAlistamiento.map((r, idx) => (
-                        <Text key={idx} style={styles.valResumen}>
-                          • {r.tipoReplica}: <Text style={{ color: '#fff', fontWeight: 'bold' }}>{r.categoria}</Text> {r.modelo ? `(${r.modelo})` : ''} - {r.fpsEstimado} FPS
-                        </Text>
-                      ))}
-                    </View>
-                    <View style={[styles.filaResumenItem, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-                      <Text style={styles.lblResumen}>REGLAMENTO TACSOP:</Text>
-                      <Text style={[styles.valResumen, { color: colors.success }]}>✓ Términos y límites aceptados</Text>
-                    </View>
-                  </View>
-
-                  {/* Configuración de Notificaciones */}
-                  <View style={styles.notificacionesAlistamientoBox}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                      <MaterialCommunityIcons name="bell-ring-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-                      <Text style={styles.tituloNotifAlistamiento}>ALERTAS TÁCTICAS EN TU TELÉFONO</Text>
-                    </View>
-                    <Text style={styles.descNotifAlistamiento}>
-                      Activa recordatorios automáticos para no olvidar réplicas ni retrasar tu despliegue:
-                    </Text>
-
-                    <View style={styles.switchNotifRow}>
-                      <View style={{ flex: 1, marginRight: 10 }}>
-                        <Text style={styles.txtSwitchNotifTitulo}>Día anterior (24 horas antes)</Text>
-                        <Text style={styles.txtSwitchNotifDesc}>Aviso táctico 24 hrs antes para alistar réplicas y baterías</Text>
-                      </View>
-                      <Switch
-                        value={notifDiaAntesAlistamiento}
-                        onValueChange={setNotifDiaAntesAlistamiento}
-                        trackColor={{ false: colors.inputBg, true: colors.primary }}
-                        thumbColor={notifDiaAntesAlistamiento ? '#fff' : colors.textMuted}
-                      />
-                    </View>
-
-                    <View style={[styles.switchNotifRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-                      <View style={{ flex: 1, marginRight: 10 }}>
-                        <Text style={styles.txtSwitchNotifTitulo}>30 minutos antes</Text>
-                        <Text style={styles.txtSwitchNotifDesc}>Aviso media hora antes para presentación en crono</Text>
-                      </View>
-                      <Switch
-                        value={notif30MinAlistamiento}
-                        onValueChange={setNotif30MinAlistamiento}
-                        trackColor={{ false: colors.inputBg, true: colors.primary }}
-                        thumbColor={notif30MinAlistamiento ? '#fff' : colors.textMuted}
-                      />
-                    </View>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-
-            {/* BOTONES DE NAVEGACIÓN INFERIOR */}
-            <View style={styles.footerAlistamientoBotones}>
-              {pasoAlistamiento > 1 ? (
-                <TouchableOpacity
-                  style={styles.btnVolverAlistamiento}
-                  onPress={() => setPasoAlistamiento((prev) => (prev - 1) as any)}
-                  disabled={alistandoseMilsim}
-                >
-                  <MaterialCommunityIcons name="arrow-left" size={16} color="#fff" style={{ marginRight: 4 }} />
-                  <Text style={styles.txtBtnVolverAlistamiento}>VOLVER</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.btnVolverAlistamiento}
-                  onPress={() => setModalAlistamientoMilsimVisible(false)}
-                  disabled={alistandoseMilsim}
-                >
-                  <Text style={styles.txtBtnVolverAlistamiento}>CANCELAR</Text>
-                </TouchableOpacity>
-              )}
-
-              {pasoAlistamiento < 4 ? (
-                <TouchableOpacity
-                  style={[
-                    styles.btnSiguienteAlistamiento,
-                    (pasoAlistamiento === 1 && !reglasAceptadas) ||
-                    (pasoAlistamiento === 3 && !bandoAlistamientoId)
-                      ? styles.botonDeshabilitado
-                      : null,
-                  ]}
-                  disabled={
-                    (pasoAlistamiento === 1 && !reglasAceptadas) ||
-                    (pasoAlistamiento === 3 && !bandoAlistamientoId)
-                  }
-                  onPress={() => setPasoAlistamiento((prev) => (prev + 1) as any)}
-                >
-                  <Text style={styles.txtBtnSiguienteAlistamiento}>
-                    {pasoAlistamiento === 1 ? 'REGISTRAR RÉPLICAS ➔' : pasoAlistamiento === 2 ? 'ELEGIR FACCIÓN ➔' : 'REVISAR ALISTAMIENTO ➔'}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.btnFinalizarAlistamiento, alistandoseMilsim && styles.botonDeshabilitado]}
-                  disabled={alistandoseMilsim}
-                  onPress={confirmarAlistamientoMilsimFinal}
-                >
-                  {alistandoseMilsim ? (
-                    <ActivityIndicator color="#000" size="small" />
-                  ) : (
-                    <>
-                      <MaterialCommunityIcons name="check-decagram" size={18} color="#000" style={{ marginRight: 6 }} />
-                      <Text style={styles.txtBtnFinalizarAlistamiento}>CONFIRMAR ALISTAMIENTO</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal para Modificar Operación */}
-      <Modal
+      <ModalEditarEvento
         visible={modalEditarVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setModalEditarVisible(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={Keyboard.dismiss}
-            accessible={false}
-          />
-          <View style={[styles.modalContent, { maxHeight: '88%' }]}>
-            <Pressable style={{ width: '100%' }} onPress={Keyboard.dismiss} accessible={false}>
-              <Text style={styles.modalTitulo}>MODIFICAR OPERACIÓN</Text>
-              <Text style={styles.modalSubtitulo}>Actualiza los parámetros tácticos y reglas:</Text>
-            </Pressable>
+        onClose={() => setModalEditarVisible(false)}
+        esMasivo={esMasivo}
+        editTitulo={editTitulo}
+        setEditTitulo={setEditTitulo}
+        editDescripcion={editDescripcion}
+        setEditDescripcion={setEditDescripcion}
+        editFechaInicio={editFechaInicio}
+        setEditFechaInicio={setEditFechaInicio}
+        editFechaFin={editFechaFin}
+        setEditFechaFin={setEditFechaFin}
+        editVidasMax={editVidasMax}
+        setEditVidasMax={setEditVidasMax}
+        editTiempoDesangradoMin={editTiempoDesangradoMin}
+        setEditTiempoDesangradoMin={setEditTiempoDesangradoMin}
+        editRequiereTorniquete={editRequiereTorniquete}
+        setEditRequiereTorniquete={setEditRequiereTorniquete}
+        editLimitesCrono={editLimitesCrono}
+        setEditLimitesCrono={setEditLimitesCrono}
+        guardandoEdicion={guardandoEdicion}
+        onGuardar={handleGuardarModificacion}
+      />
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              style={{ width: '100%' }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-            >
-              <Pressable onPress={Keyboard.dismiss} accessible={false}>
-              <Text style={styles.inputModalLabel}>TÍTULO (*):</Text>
-              <TextInput
-                style={styles.inputModal}
-                value={editTitulo}
-                onChangeText={setEditTitulo}
-                placeholder="Título del evento"
-                placeholderTextColor={colors.textMuted}
-                returnKeyType="done"
-              />
-
-              <Text style={styles.inputModalLabel}>BRIEFING / DESCRIPCIÓN:</Text>
-              <TextInput
-                style={[styles.inputModal, styles.inputModalArea]}
-                value={editDescripcion}
-                onChangeText={setEditDescripcion}
-                placeholder="Detalles de la operación..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={3}
-                returnKeyType="done"
-                submitBehavior="blurAndSubmit"
-                onSubmitEditing={Keyboard.dismiss}
-              />
-
-              <TacticalDateTimePicker
-                label="HORA DE INICIO (*):"
-                value={editFechaInicio}
-                onChange={setEditFechaInicio}
-              />
-
-              <TacticalDateTimePicker
-                label="HORA DE TÉRMINO (*):"
-                value={editFechaFin}
-                minimumDate={editFechaInicio}
-                onChange={setEditFechaFin}
-              />
-
-              {esMasivo && (
-                <View style={{ marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                    <MaterialCommunityIcons name="shield-sword" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-                    <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 13 }}>REGLAS TACSOP & CRONÓGRAFO</Text>
-                  </View>
-
-                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputModalLabel}>VIDAS POR OPERADOR:</Text>
-                      <TextInput
-                        style={styles.inputModal}
-                        value={editVidasMax}
-                        onChangeText={setEditVidasMax}
-                        keyboardType="numeric"
-                        placeholder="2"
-                        placeholderTextColor={colors.textMuted}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputModalLabel}>DESANGRADO (MIN):</Text>
-                      <TextInput
-                        style={styles.inputModal}
-                        value={editTiempoDesangradoMin}
-                        onChangeText={setEditTiempoDesangradoMin}
-                        keyboardType="numeric"
-                        placeholder="5"
-                        placeholderTextColor={colors.textMuted}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={[styles.filaSwitchRecordatorio, { backgroundColor: '#181818', padding: 10, borderRadius: 8, marginBottom: 12 }]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>¿Requiere torniquete obligatorio?</Text>
-                      <Text style={{ color: colors.textMuted, fontSize: 10 }}>Auto-aplicación médica en combate</Text>
-                    </View>
-                    <Switch
-                      value={editRequiereTorniquete}
-                      onValueChange={setEditRequiereTorniquete}
-                      trackColor={{ false: colors.inputBg, true: colors.primary }}
-                      thumbColor={editRequiereTorniquete ? '#fff' : colors.textMuted}
-                    />
-                  </View>
-
-                  <Text style={[styles.inputModalLabel, { marginBottom: 6 }]}>LÍMITES DE CRONO POR CATEGORÍA (FPS / JULIOS):</Text>
-                  {editLimitesCrono.map((lim: any, idx: number) => (
-                    <View key={lim.categoria || idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, backgroundColor: '#181818', padding: 8, borderRadius: 6 }}>
-                      <Text style={{ width: 68, color: '#fff', fontSize: 11, fontWeight: '700' }}>{lim.categoria}</Text>
-                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Text style={{ color: colors.textMuted, fontSize: 10 }}>FPS:</Text>
-                        <TextInput
-                          style={[styles.inputModal, { flex: 1, height: 34, paddingVertical: 2, fontSize: 11, marginBottom: 0 }]}
-                          value={lim.maxFps ? String(lim.maxFps) : ''}
-                          keyboardType="numeric"
-                          onChangeText={(val) => {
-                            const fpsNum = parseInt(val, 10) || 0;
-                            const jNum = Number((0.5 * 0.0002 * Math.pow(fpsNum * 0.3048, 2)).toFixed(2));
-                            setEditLimitesCrono((prev: any[]) =>
-                              prev.map((item, i) => (i === idx ? { ...item, maxFps: fpsNum, maxJoules: jNum } : item))
-                            );
-                          }}
-                        />
-                      </View>
-                      <View style={{ width: 65, alignItems: 'center' }}>
-                        <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>{lim.maxJoules} J</Text>
-                        <Text style={{ color: colors.textMuted, fontSize: 9 }}>0.20g</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )}
-              </Pressable>
-            </ScrollView>
-
-            <View style={[styles.modalBotones, { marginTop: 12 }]}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalEditarVisible(false);
-                }}
-              >
-                <Text style={styles.modalTextoCancelar}>VOLVER</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBotonConfirmar, guardandoEdicion && styles.botonDeshabilitado]}
-                disabled={guardandoEdicion}
-                onPress={handleGuardarModificacion}
-              >
-                {guardandoEdicion ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.modalTextoConfirmar}>GUARDAR CAMBIOS</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal para Cancelar Evento */}
-      <Modal
+      <ModalCancelarEvento
         visible={modalCancelarVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setModalCancelarVisible(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={Keyboard.dismiss}
-            accessible={false}
-          />
-          <View style={styles.modalContent}>
-            <Pressable style={{ width: '100%' }} onPress={Keyboard.dismiss} accessible={false}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                <MaterialCommunityIcons name="cancel" size={20} color={colors.danger} style={{ marginRight: 6 }} />
-                <Text style={[styles.modalTitulo, { color: colors.danger, marginBottom: 0 }]}>CANCELAR OPERACIÓN</Text>
-              </View>
-              <Text style={styles.modalSubtitulo}>
-                Indica el motivo de la cancelación. Se notificará a los participantes:
-              </Text>
-            </Pressable>
+        onClose={() => setModalCancelarVisible(false)}
+        motivos={MOTIVOS_CANCELACION}
+        motivoSeleccionado={motivoSeleccionado}
+        setMotivoSeleccionado={setMotivoSeleccionado}
+        motivoOtroTexto={motivoOtroTexto}
+        setMotivoOtroTexto={setMotivoOtroTexto}
+        cancelandoEvento={cancelandoEvento}
+        onConfirmar={handleConfirmarCancelacion}
+      />
 
-            {MOTIVOS_CANCELACION.map((motivo) => {
-              const seleccionado = motivoSeleccionado === motivo;
-              return (
-                <TouchableOpacity
-                  key={motivo}
-                  style={[styles.itemMotivoChip, seleccionado && styles.itemMotivoChipActivo]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setMotivoSeleccionado(motivo);
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name={seleccionado ? 'radiobox-marked' : 'radiobox-blank'}
-                    size={16}
-                    color={seleccionado ? colors.danger : colors.textMuted}
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={[styles.txtMotivoChip, seleccionado && styles.txtMotivoChipActivo]}>
-                    {motivo}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-
-            {motivoSeleccionado === 'Otro motivo...' && (
-              <TextInput
-                style={[styles.inputModal, styles.inputModalArea, { marginTop: 8 }]}
-                value={motivoOtroTexto}
-                onChangeText={setMotivoOtroTexto}
-                placeholder="Escribe el motivo detallado..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={2}
-                returnKeyType="done"
-                submitBehavior="blurAndSubmit"
-                onSubmitEditing={Keyboard.dismiss}
-              />
-            )}
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalCancelarVisible(false);
-                }}
-              >
-                <Text style={styles.modalTextoCancelar}>VOLVER</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.btnConfirmarCancelarEvento, cancelandoEvento && styles.botonDeshabilitado]}
-                disabled={cancelandoEvento}
-                onPress={handleConfirmarCancelacion}
-              >
-                {cancelandoEvento ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.txtConfirmarCancelarEvento}>CONFIRMAR CANCELACIÓN</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Modal QR para Operadores Atrasados */}
-      <Modal
+      <ModalQrAcceso
         visible={modalQrVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalQrVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContentQr}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="qrcode-scan" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>QR DE ACCESO TÁCTICO</Text>
-                <Text style={styles.modalSubtitulo}>
-                  Muestra este código a los operadores en la cancha para ingreso rápido:
-                </Text>
-              </View>
-            </View>
+        onClose={() => setModalQrVisible(false)}
+        evento={evento}
+        tabQrAtrasados={tabQrAtrasados}
+        setTabQrAtrasados={setTabQrAtrasados}
+        bandoQrSeleccionadoId={bandoQrSeleccionadoId}
+        setBandoQrSeleccionadoId={setBandoQrSeleccionadoId}
+        onCompartirOperacion={handleCompartirOperacion}
+      />
 
-            <View style={styles.qrTabsContainer}>
-              <TouchableOpacity
-                style={[styles.qrTabBtn, tabQrAtrasados === 'PARTIDA' && styles.qrTabBtnActivo]}
-                onPress={() => setTabQrAtrasados('PARTIDA')}
-              >
-                <Text style={[styles.qrTabTxt, tabQrAtrasados === 'PARTIDA' && styles.qrTabTxtActivo]}>
-                  EVENTO GENERAL
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.qrTabBtn, tabQrAtrasados === 'BANDO' && styles.qrTabBtnActivo]}
-                onPress={() => {
-                  setTabQrAtrasados('BANDO');
-                  if (!bandoQrSeleccionadoId && evento.bandos && evento.bandos.length > 0) {
-                    setBandoQrSeleccionadoId(evento.bandos[0].id);
-                  }
-                }}
-              >
-                <Text style={[styles.qrTabTxt, tabQrAtrasados === 'BANDO' && styles.qrTabTxtActivo]}>
-                  POR BANDO DIRECTO
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {tabQrAtrasados === 'BANDO' && evento.bandos && (
-              <View style={styles.bandoSelectorQrRow}>
-                {evento.bandos.map((b) => {
-                  const seleccionado = (bandoQrSeleccionadoId || evento.bandos![0].id) === b.id;
-                  return (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[styles.chipBandoQr, seleccionado && { borderColor: b.colorHex || colors.primary }]}
-                      onPress={() => setBandoQrSeleccionadoId(b.id)}
-                    >
-                      <View style={[styles.dotBando, { backgroundColor: b.colorHex || colors.primary }]} />
-                      <Text style={[styles.txtChipBando, seleccionado && { color: '#fff', fontWeight: '800' }]}>
-                        {b.nombre}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-
-            {(() => {
-              const bandoActivo =
-                tabQrAtrasados === 'BANDO'
-                  ? evento.bandos?.find((b) => b.id === (bandoQrSeleccionadoId || evento.bandos![0].id))
-                  : null;
-
-              const qrPayload =
-                tabQrAtrasados === 'BANDO' && bandoActivo?.qrToken
-                  ? `bajatepo://bando/${bandoActivo.qrToken}`
-                  : `bajatepo://evento/${evento.codigoInvitacion || evento.id}`;
-
-              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-                qrPayload,
-              )}&color=000000&bgcolor=ffffff`;
-
-              return (
-                <View style={styles.qrContainerBox}>
-                  <Image source={{ uri: qrUrl }} style={styles.qrImage} resizeMode="contain" />
-                  <View style={styles.qrCodigoFooter}>
-                    <Text style={styles.qrCodigoSub}>CÓDIGO MNEMOTÉCNICO:</Text>
-                    <Text style={styles.qrCodigoText}>{evento.codigoInvitacion || 'N/A'}</Text>
-                    <Text style={styles.qrInstruccion}>
-                      {tabQrAtrasados === 'BANDO'
-                        ? `Al escanear ingresarán directo a "${bandoActivo?.nombre || 'Bando'}".`
-                        : 'Al escanear accederán directamente al evento.'}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })()}
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => setModalQrVisible(false)}
-              >
-                <Text style={styles.modalTextoCancelar}>CERRAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.btnCompartirModal}
-                onPress={handleCompartirOperacion}
-              >
-                <MaterialCommunityIcons name="share-variant" size={15} color="#fff" style={{ marginRight: 4 }} />
-                <Text style={styles.modalTextoConfirmar}>COMPARTIR LINK</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal Iniciar Evento / Elegir Modalidad */}
-      <Modal
+      <ModalIniciarPartida
         visible={modalIniciarPartidaVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalIniciarPartidaVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="flag-checkered" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>INICIAR PARTIDA / MODALIDAD</Text>
-                <Text style={styles.modalSubtitulo}>
-                  Elige la modalidad táctica configurada:
-                </Text>
-              </View>
-            </View>
+        onClose={() => setModalIniciarPartidaVisible(false)}
+        partidasCount={partidas.length}
+        modalidades={modalidades}
+        modalidadSeleccionada={modalidadSeleccionada}
+        setModalidadSeleccionada={setModalidadSeleccionada}
+        nombreNuevaPartida={nombreNuevaPartida}
+        setNombreNuevaPartida={setNombreNuevaPartida}
+        creandoPartida={creandoPartida}
+        onIniciarPartida={handleIniciarPartida}
+      />
 
-            <Text style={styles.inputModalLabel}>NOMBRE DE LA PARTIDA (OPCIONAL):</Text>
-            <TextInput
-              style={styles.inputModal}
-              placeholder={`ej: Partida ${partidas.length + 1} (${modalidadSeleccionada?.nombre || 'TDM'})`}
-              placeholderTextColor={colors.textMuted}
-              value={nombreNuevaPartida}
-              onChangeText={setNombreNuevaPartida}
-            />
-
-            <Text style={styles.inputModalLabel}>MODALIDAD DE JUEGO:</Text>
-            <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
-              {modalidades.map((m) => {
-                const activo = (modalidadSeleccionada?.id || modalidades[0]?.id) === m.id;
-                return (
-                  <TouchableOpacity
-                    key={m.id}
-                    style={[styles.itemModalidadCard, activo && styles.itemModalidadCardActivo]}
-                    onPress={() => setModalidadSeleccionada(m)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.txtModalidadNombre, activo && styles.txtModalidadNombreActivo]}>
-                        {m.nombre}
-                      </Text>
-                      {m.descripcion ? (
-                        <Text style={styles.txtModalidadDesc}>{m.descripcion}</Text>
-                      ) : null}
-                    </View>
-                    {activo && (
-                      <MaterialCommunityIcons name="check-circle" size={18} color={colors.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => setModalIniciarPartidaVisible(false)}
-              >
-                <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBotonConfirmar, creandoPartida && styles.botonDeshabilitado]}
-                disabled={creandoPartida}
-                onPress={handleIniciarPartida}
-              >
-                {creandoPartida ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.modalTextoConfirmar}>DAR INICIO AL COMBATE</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* MODAL PARA HABILITAR / CREAR ESCUADRAS (EVENTOS MASIVOS) */}
-      <Modal
+      <ModalHabilitarEscuadras
         visible={modalEscuadrasVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setModalEscuadrasVisible(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={Keyboard.dismiss}
-            accessible={false}
-          />
-          <View style={styles.modalContent}>
-            <Pressable
-              style={styles.modalHeaderQr}
-              onPress={Keyboard.dismiss}
-              accessible={false}
-            >
-              <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>HABILITAR ESCUADRAS</Text>
-                <Text style={styles.modalSubtitulo}>
-                  Facción: {bandoSeleccionadoParaEscuadras?.nombre}
-                </Text>
-              </View>
-            </Pressable>
+        onClose={() => setModalEscuadrasVisible(false)}
+        bando={bandoSeleccionadoParaEscuadras}
+        modoEscuadra={modoEscuadra}
+        setModoEscuadra={setModoEscuadra}
+        cantidadEscuadras={cantidadEscuadras}
+        setCantidadEscuadras={setCantidadEscuadras}
+        nombreNuevaEscuadra={nombreNuevaEscuadra}
+        setNombreNuevaEscuadra={setNombreNuevaEscuadra}
+        cupoMaxNuevaEscuadra={cupoMaxNuevaEscuadra}
+        setCupoMaxNuevaEscuadra={setCupoMaxNuevaEscuadra}
+        guardandoEscuadra={guardandoEscuadra}
+        onGenerar={handleGenerarEscuadras}
+      />
 
-            {/* Pestañas de Modo: Rápido (X Escuadras) vs Específica */}
-            <View style={styles.qrTabsContainer}>
-              <TouchableOpacity
-                style={[styles.qrTabBtn, modoEscuadra === 'GENERAR' && styles.qrTabBtnActivo]}
-                onPress={() => setModoEscuadra('GENERAR')}
-              >
-                <Text style={[styles.qrTabTxt, modoEscuadra === 'GENERAR' && styles.qrTabTxtActivo]}>
-                  MÚLTIPLES (X)
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.qrTabBtn, modoEscuadra === 'CREAR_UNA' && styles.qrTabBtnActivo]}
-                onPress={() => setModoEscuadra('CREAR_UNA')}
-              >
-                <Text style={[styles.qrTabTxt, modoEscuadra === 'CREAR_UNA' && styles.qrTabTxtActivo]}>
-                  + ESPECÍFICA
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {modoEscuadra === 'GENERAR' ? (
-              <View>
-                <Text style={styles.inputModalLabel}>CANTIDAD DE ESCUADRAS A HABILITAR:</Text>
-                <View style={styles.botonesCantidadRow}>
-                  {['2', '3', '4', '6', '8'].map((cant) => (
-                    <TouchableOpacity
-                      key={cant}
-                      style={[
-                        styles.btnChipCantidad,
-                        cantidadEscuadras === cant && styles.btnChipCantidadActivo,
-                      ]}
-                      onPress={() => setCantidadEscuadras(cant)}
-                    >
-                      <Text
-                        style={[
-                          styles.txtChipCantidad,
-                          cantidadEscuadras === cant && styles.txtChipCantidadActivo,
-                        ]}
-                      >
-                        {cant}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.inputModalLabel}>CUPO MÁXIMO POR ESCUADRA:</Text>
-                <TextInput
-                  style={styles.inputModal}
-                  value={cupoMaxNuevaEscuadra}
-                  onChangeText={setCupoMaxNuevaEscuadra}
-                  keyboardType="numeric"
-                  placeholder="ej: 10"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-            ) : (
-              <View>
-                <Text style={styles.inputModalLabel}>NOMBRE DE LA ESCUADRA (*):</Text>
-                <TextInput
-                  style={styles.inputModal}
-                  value={nombreNuevaEscuadra}
-                  onChangeText={setNombreNuevaEscuadra}
-                  placeholder="ej: Escuadra Alfa Recon"
-                  placeholderTextColor={colors.textMuted}
-                />
-
-                <Text style={styles.inputModalLabel}>CUPO MÁXIMO DE OPERADORES:</Text>
-                <TextInput
-                  style={styles.inputModal}
-                  value={cupoMaxNuevaEscuadra}
-                  onChangeText={setCupoMaxNuevaEscuadra}
-                  keyboardType="numeric"
-                  placeholder="ej: 10"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-            )}
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalEscuadrasVisible(false);
-                }}
-              >
-                <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBotonConfirmar, guardandoEscuadra && styles.botonDeshabilitado]}
-                disabled={guardandoEscuadra}
-                onPress={handleGenerarEscuadras}
-              >
-                {guardandoEscuadra ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.modalTextoConfirmar}>
-                    {modoEscuadra === 'GENERAR' ? 'HABILITAR ESCUADRAS' : 'CREAR ESCUADRA'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* MODAL PARA DESIGNAR LÍDER DE BANDO / FACCIÓN */}
-      <Modal
+      <ModalDesignarLiderBando
         visible={modalLiderBandoVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalLiderBandoVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="star-shooting" size={24} color="#F59E0B" />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>DESIGNAR LÍDER DE FACCIÓN</Text>
-                <Text style={styles.modalSubtitulo}>
-                  Facción: {bandoSeleccionadoParaLider?.nombre}
-                </Text>
-              </View>
-            </View>
+        onClose={() => setModalLiderBandoVisible(false)}
+        bando={bandoSeleccionadoParaLider}
+        evento={evento}
+        jugadores={jugadores}
+        onDesignarLider={handleDesignarLider}
+      />
 
-            <Text style={styles.inputModalLabel}>SELECCIONA AL COMANDANTE:</Text>
-            <ScrollView style={{ maxHeight: 250 }} showsVerticalScrollIndicator={false}>
-              {/* Opción para quitar líder */}
-              <TouchableOpacity
-                style={[
-                  styles.itemCandidatoLider,
-                  !bandoSeleccionadoParaLider?.liderId && styles.itemCandidatoLiderActivo,
-                ]}
-                onPress={() => handleDesignarLider(null)}
-              >
-                <MaterialCommunityIcons name="account-remove" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
-                <Text style={styles.txtCandidatoNombre}>Dejar sin líder asignado</Text>
-              </TouchableOpacity>
-
-              {/* Lista de operadores de esta facción u organizadores */}
-              {jugadores
-                .filter((j) => j.bandoId === bandoSeleccionadoParaLider?.id || j.jugadorId === evento.organizadorId)
-                .map((cand) => {
-                  const esActual = bandoSeleccionadoParaLider?.liderId === cand.jugadorId;
-                  return (
-                    <TouchableOpacity
-                      key={cand.jugadorId}
-                      style={[styles.itemCandidatoLider, esActual && styles.itemCandidatoLiderActivo]}
-                      onPress={() => handleDesignarLider(cand.jugadorId)}
-                    >
-                      <MaterialCommunityIcons
-                        name={esActual ? 'star' : 'account'}
-                        size={18}
-                        color={esActual ? '#F59E0B' : colors.primary}
-                        style={{ marginRight: 8 }}
-                      />
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.txtCandidatoNombre, esActual && { color: '#F59E0B', fontWeight: '900' }]}>
-                          {cand.alias || `Operador #${cand.jugadorId}`}
-                          {cand.jugadorId === evento.organizadorId ? ' (ORGANIZADOR)' : ''}
-                        </Text>
-                        <Text style={styles.txtCandidatoRol}>Rol: {cand.rol || 'ASALTO'}</Text>
-                      </View>
-                      {esActual && <Text style={{ color: '#F59E0B', fontWeight: '900' }}>ACTUAL</Text>}
-                    </TouchableOpacity>
-                  );
-                })}
-            </ScrollView>
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => setModalLiderBandoVisible(false)}
-              >
-                <Text style={styles.modalTextoCancelar}>CERRAR</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* MODAL PARA NOMBRAR CO-ORGANIZADOR */}
-      <Modal
+      <ModalNombrarCoorganizador
         visible={modalCoorganizadorVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalCoorganizadorVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="account-multiple-plus" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>NOMBRAR CO-ORGANIZADOR</Text>
-                <Text style={styles.modalSubtitulo}>
-                  Otorga facultades de mando a otro operador inscrito:
-                </Text>
-              </View>
-            </View>
+        onClose={() => setModalCoorganizadorVisible(false)}
+        evento={evento}
+        jugadores={jugadores}
+        onAgregarCoorganizador={handleAgregarCoorganizador}
+      />
 
-            <Text style={styles.inputModalLabel}>OPERADORES INSCRITOS:</Text>
-            <ScrollView style={{ maxHeight: 250 }} showsVerticalScrollIndicator={false}>
-              {jugadores
-                .filter(
-                  (j) =>
-                    j.jugadorId !== evento.organizadorId &&
-                    !evento.coorganizadores?.some((co) => co.jugadorId === j.jugadorId),
-                )
-                .map((cand) => (
-                  <TouchableOpacity
-                    key={cand.jugadorId}
-                    style={styles.itemCandidatoLider}
-                    onPress={() => handleAgregarCoorganizador(cand.jugadorId)}
-                  >
-                    <MaterialCommunityIcons name="shield-account" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.txtCandidatoNombre}>{cand.alias || `Operador #${cand.jugadorId}`}</Text>
-                      <Text style={styles.txtCandidatoRol}>Rol: {cand.rol || 'ASALTO'}</Text>
-                    </View>
-                    <Text style={{ color: colors.primary, fontWeight: '800', fontSize: 11 }}>+ NOMBRAR</Text>
-                  </TouchableOpacity>
-                ))}
-
-              {jugadores.filter(
-                (j) =>
-                  j.jugadorId !== evento.organizadorId &&
-                  !evento.coorganizadores?.some((co) => co.jugadorId === j.jugadorId),
-              ).length === 0 && (
-                <Text style={styles.sinOperadores}>No hay operadores disponibles para nombrar.</Text>
-              )}
-            </ScrollView>
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => setModalCoorganizadorVisible(false)}
-              >
-                <Text style={styles.modalTextoCancelar}>VOLVER</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* MODAL 0: TABLA DE LÍMITES DE CRONÓGRAFO (SOLO CRONO)     */}
-      {/* ======================================================== */}
-      <Modal
+      <ModalLimitesCrono
         visible={modalSoloCronoVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalSoloCronoVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="speedometer" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>LÍMITES DE CRONÓGRAFO OFICIAL</Text>
-                <Text style={styles.modalSubtitulo}>Homologación de réplicas en terreno (BB 0.20g)</Text>
-              </View>
-            </View>
+        onClose={() => setModalSoloCronoVisible(false)}
+        limitesCrono={evento.tacsop?.limitesCrono}
+      />
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ marginVertical: 12 }}>
-              <View style={styles.cronoTablaPreMision}>
-                <View style={styles.cronoTablaFilaHeader}>
-                  <Text style={[styles.cronoTablaColHeader, { flex: 1.2 }]}>CATEGORÍA</Text>
-                  <Text style={[styles.cronoTablaColHeader, { flex: 1 }]}>MAX J</Text>
-                  <Text style={[styles.cronoTablaColHeader, { flex: 1 }]}>~FPS</Text>
-                  <Text style={[styles.cronoTablaColHeader, { flex: 0.9 }]}>MED</Text>
-                  <Text style={[styles.cronoTablaColHeader, { flex: 1.1 }]}>DISPARO</Text>
-                </View>
-                {(evento.tacsop?.limitesCrono || [
-                  { categoria: 'PISTOLA', maxJoules: 1.0, maxFps: 328, medMetros: 0, tipoDisparo: 'SEMI' },
-                  { categoria: 'ASALTO', maxJoules: 1.49, maxFps: 400, medMetros: 5, tipoDisparo: 'SEMI_AUTO' },
-                  { categoria: 'SOPORTE', maxJoules: 1.6, maxFps: 415, medMetros: 15, tipoDisparo: 'AUTO_RAFAGA' },
-                  { categoria: 'DMR', maxJoules: 1.88, maxFps: 450, medMetros: 20, tipoDisparo: 'SEMI' },
-                  { categoria: 'SNIPER', maxJoules: 2.81, maxFps: 550, medMetros: 30, tipoDisparo: 'CERROJO' },
-                ]).map((lim: any) => (
-                  <View key={lim.categoria} style={styles.cronoTablaFila}>
-                    <Text style={[styles.cronoTablaCol, { flex: 1.2, fontWeight: '800' }]}>{lim.categoria}</Text>
-                    <Text style={[styles.cronoTablaCol, { flex: 1, color: colors.primary }]}>{lim.maxJoules} J</Text>
-                    <Text style={[styles.cronoTablaCol, { flex: 1 }]}>{lim.maxFps ? `${lim.maxFps}` : '-'}</Text>
-                    <Text style={[styles.cronoTablaCol, { flex: 0.9, color: colors.warning }]}>{lim.medMetros}m</Text>
-                    <Text style={[styles.cronoTablaCol, { flex: 1.1, fontSize: 9, color: colors.textMuted }]}>
-                      {lim.tipoDisparo || '-'}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              <Text style={[styles.txtAvisoPreMisionCrono, { marginTop: 10 }]}>
-                * Toda réplica debe disparar dentro de los parámetros estipulados para su categoría. Las BBs de prueba del cronógrafo son de 0.20g.
-              </Text>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.modalBotonCancelar}
-              onPress={() => setModalSoloCronoVisible(false)}
-            >
-              <Text style={styles.modalTextoCancelar}>ENTENDIDO / CERRAR</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* MODAL 1: FICHA TACSOP DIGITAL COMPLETA                   */}
-      {/* ======================================================== */}
-      <Modal
+      <ModalTacsopReglamento
         visible={modalTacsopVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalTacsopVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '85%' }]}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="shield-sword" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>TACSOP & REGLAMENTO DE MISIÓN</Text>
-                <Text style={styles.modalSubtitulo}>
-                  Preset: {evento.tacsop?.presetTipo || 'ESTÁNDAR'}
-                </Text>
-              </View>
-            </View>
+        onClose={() => setModalTacsopVisible(false)}
+        evento={evento}
+        esMasivo={esMasivo}
+        soyOrganizador={soyOrganizador}
+        miBando={miBando}
+      />
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ marginVertical: 8 }}>
-              {/* Reglas Médicas */}
-              <Text style={styles.tacsopModalSeccion}>SISTEMA MÉDICO & VIDAS</Text>
-              <View style={styles.tacsopModalCard}>
-                <Text style={styles.txtTacsopFila}>
-                  • Vidas por operador: <Text style={styles.txtTacsopHighlight}>{evento.tacsop?.vidasMax ?? 2} vidas</Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Torniquetes requeridos:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.requiereTorniquete
-                      ? `SÍ (${evento.tacsop?.torniquetesPorJugador ?? 1} por operador)`
-                      : 'NO'}
-                  </Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Tiempo de desangrado (bleed-out):{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.tiempoDesangradoMin ?? 3} minutos
-                  </Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Quién revive:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.soloMedicoRevive ? 'Solo Médico con rol' : 'Cualquier operador (Buddy Aid)'}
-                  </Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Pañuelo Rojo/Naranja de Muerto:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.requierePanueloRojo !== false ? 'OBLIGATORIO SIEMPRE' : 'RECOMENDADO'}
-                  </Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Luz Roja Nocturna:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.luzRojaNocturna || 'RECOMENDADA'}
-                  </Text>
-                </Text>
-              </View>
-
-              {/* Cargadores y Munición */}
-              <Text style={styles.tacsopModalSeccion}>MUNICIÓN Y CARGADORES</Text>
-              <View style={styles.tacsopModalCard}>
-                <Text style={styles.txtTacsopFila}>
-                  • Tipo de cargadores:{' '}
-                  <Text style={styles.txtTacsopHighlight}>{evento.tacsop?.tipoCargadores || 'LIBRE'}</Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Límite de munición BBs:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.limiteMunicionBbs ? `${evento.tacsop.limiteMunicionBbs} BBs` : 'Sin límite'}
-                  </Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Pirotecnia sonora / detonaciones:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.pirotecniaPermitida ? 'PERMITIDA' : 'PROHIBIDA'}
-                  </Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Granadas de humo frío:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.humoFrioPermitido !== false ? 'PERMITIDO (Solo frío)' : 'PROHIBIDO'}
-                  </Text>
-                </Text>
-              </View>
-
-              {/* Límites de Crono */}
-              <Text style={styles.tacsopModalSeccion}>LÍMITES DE CRONÓGRAFO (JOULES & MED)</Text>
-              <View style={styles.tacsopModalCard}>
-                {(evento.tacsop?.limitesCrono || [
-                  { categoria: 'PISTOLA', maxJoules: 1.0, maxFps: 328, medMetros: 0, tipoDisparo: 'SEMI' },
-                  { categoria: 'ASALTO', maxJoules: 1.49, maxFps: 400, medMetros: 5, tipoDisparo: 'SEMI_AUTO' },
-                  { categoria: 'SOPORTE', maxJoules: 1.6, maxFps: 415, medMetros: 15, tipoDisparo: 'AUTO_RAFAGA' },
-                  { categoria: 'DMR', maxJoules: 1.88, maxFps: 450, medMetros: 20, tipoDisparo: 'SEMI' },
-                  { categoria: 'SNIPER', maxJoules: 2.81, maxFps: 550, medMetros: 30, tipoDisparo: 'CERROJO' },
-                ]).map((lim) => (
-                  <View key={lim.categoria} style={styles.filaModalCronoItem}>
-                    <Text style={styles.txtCatCronoModal}>{lim.categoria}:</Text>
-                    <Text style={styles.txtValCronoModal}>
-                      {lim.maxJoules} J (~{lim.maxFps} FPS) | MED: {lim.medMetros}m ({lim.tipoDisparo})
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Plan de COMMS */}
-              <Text style={styles.tacsopModalSeccion}>COMUNICACIONES BAOFENG UV-5R</Text>
-              <View style={styles.tacsopModalCard}>
-                <Text style={styles.txtTacsopFila}>
-                  • Canal Emergencia (Blind Man):{' '}
-                  <Text style={[styles.txtTacsopHighlight, { color: colors.danger }]}>
-                    {evento.tacsop?.frecuenciaEmergencia || '462.5625 MHz'}
-                  </Text>
-                </Text>
-                <Text style={styles.txtTacsopFila}>
-                  • Canal Staff / Control:{' '}
-                  <Text style={styles.txtTacsopHighlight}>
-                    {evento.tacsop?.frecuenciaStaff || '462.5875 MHz'} (CTCSS: {evento.tacsop?.subtonoStaff || '67.0 Hz'})
-                  </Text>
-                </Text>
-                {(esMasivo && !soyOrganizador && miBando?.bandoId
-                  ? evento.bandos?.filter((b) => b.id === miBando.bandoId)
-                  : evento.bandos
-                )?.map((b) => (
-                  <Text key={b.id} style={styles.txtTacsopFila}>
-                    • Frecuencia {b.nombre}:{' '}
-                    <Text style={styles.txtTacsopHighlight}>
-                      {b.frecuenciaRadio || '462.6125 MHz'} {b.subtonoRadio ? `(CTCSS: ${b.subtonoRadio})` : ''}
-                    </Text>
-                  </Text>
-                ))}
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.btnCerrarModalTacsop}
-              onPress={() => setModalTacsopVisible(false)}
-            >
-              <Text style={styles.txtBtnCerrarModalTacsop}>ENTENDIDO, VOLVER A LA OPERACIÓN</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* MODAL 2: CRONAJE OFICIAL (STAFF)                         */}
-      {/* ======================================================== */}
-      <Modal
+      <ModalCronografoStaff
         visible={modalCronoVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setModalCronoVisible(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={Keyboard.dismiss}
-            accessible={false}
-          />
-          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
-            <Pressable
-              style={styles.modalHeaderQr}
-              onPress={Keyboard.dismiss}
-              accessible={false}
-            >
-              <MaterialCommunityIcons name="speedometer" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>CRONÓGRAFO OFICIAL (STAFF)</Text>
-                <Text style={styles.modalSubtitulo}>Registra y homologa réplicas en terreno</Text>
-              </View>
-            </Pressable>
+        onClose={() => setModalCronoVisible(false)}
+        jugadores={jugadores}
+        cronoJugadorId={cronoJugadorId}
+        setCronoJugadorId={setCronoJugadorId}
+        cronoTipoReplica={cronoTipoReplica}
+        setCronoTipoReplica={setCronoTipoReplica}
+        cronoCategoria={cronoCategoria}
+        setCronoCategoria={setCronoCategoria}
+        cronoJoules={cronoJoules}
+        setCronoJoules={setCronoJoules}
+        cronoFps={cronoFps}
+        setCronoFps={setCronoFps}
+        cronoGramaje={cronoGramaje}
+        setCronoGramaje={setCronoGramaje}
+        cronoModelo={cronoModelo}
+        setCronoModelo={setCronoModelo}
+        cronoAprobado={cronoAprobado}
+        setCronoAprobado={setCronoAprobado}
+        guardandoCrono={guardandoCrono}
+        onGuardarCrono={handleGuardarCrono}
+      />
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              style={{ marginVertical: 6, width: '100%' }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-            >
-              <Pressable onPress={Keyboard.dismiss} accessible={false}>
-              {/* Selección del Operador */}
-              <Text style={styles.inputModalLabel}>SELECCIONA EL OPERADOR:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-                {jugadores.map((j) => (
-                  <TouchableOpacity
-                    key={j.jugadorId}
-                    style={[
-                      styles.chipJugadorCrono,
-                      cronoJugadorId === j.jugadorId && styles.chipJugadorCronoActivo,
-                    ]}
-                    onPress={() => setCronoJugadorId(j.jugadorId)}
-                  >
-                    <Text
-                      style={[
-                        styles.txtChipJugadorCrono,
-                        cronoJugadorId === j.jugadorId && styles.txtChipJugadorCronoActivo,
-                      ]}
-                    >
-                      {j.alias || `Op #${j.jugadorId}`}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Tipo de Réplica */}
-              <Text style={styles.inputModalLabel}>TIPO DE RÉPLICA:</Text>
-              <View style={styles.chipsRowSelectorCrono}>
-                {(['PRIMARIA', 'PRIMARIA_2', 'SECUNDARIA'] as const).map((tr) => (
-                  <TouchableOpacity
-                    key={tr}
-                    style={[
-                      styles.chipTipoRep,
-                      cronoTipoReplica === tr && styles.chipTipoRepActivo,
-                    ]}
-                    onPress={() => setCronoTipoReplica(tr)}
-                  >
-                    <Text
-                      style={[
-                        styles.txtChipTipoRep,
-                        cronoTipoReplica === tr && styles.txtChipTipoRepActivo,
-                      ]}
-                    >
-                      {tr === 'PRIMARIA' ? 'PRIMARIA' : tr === 'PRIMARIA_2' ? 'PRIMARIA 2' : 'SECUNDARIA'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Categoría Táctica */}
-              <Text style={styles.inputModalLabel}>CATEGORÍA:</Text>
-              <View style={styles.chipsRowSelectorCrono}>
-                {['PISTOLA', 'ASALTO', 'SOPORTE', 'DMR', 'SNIPER'].map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.chipTipoRep,
-                      cronoCategoria === cat && styles.chipTipoRepActivo,
-                    ]}
-                    onPress={() => setCronoCategoria(cat)}
-                  >
-                    <Text
-                      style={[
-                        styles.txtChipTipoRep,
-                        cronoCategoria === cat && styles.txtChipTipoRepActivo,
-                      ]}
-                    >
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Mediciones: Joules, FPS y Gramaje */}
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputModalLabel}>ENERGÍA (JOULES):</Text>
-                  <TextInput
-                    style={styles.inputModal}
-                    placeholder="Ej: 1.14"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                    value={cronoJoules}
-                    onChangeText={setCronoJoules}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputModalLabel}>FPS (OPCIONAL):</Text>
-                  <TextInput
-                    style={styles.inputModal}
-                    placeholder="Ej: 350"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="numeric"
-                    value={cronoFps}
-                    onChangeText={setCronoFps}
-                  />
-                </View>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputModalLabel}>BBs (GRAMOS):</Text>
-                  <TextInput
-                    style={styles.inputModal}
-                    placeholder="0.25"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="decimal-pad"
-                    value={cronoGramaje}
-                    onChangeText={setCronoGramaje}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputModalLabel}>MODELO (OPCIONAL):</Text>
-                  <TextInput
-                    style={styles.inputModal}
-                    placeholder="Ej: M4 MK18"
-                    placeholderTextColor={colors.textMuted}
-                    value={cronoModelo}
-                    onChangeText={setCronoModelo}
-                  />
-                </View>
-              </View>
-
-              {/* Aprobado / Rechazado */}
-              <View style={styles.switchAprobadoRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.txtAprobadoTitulo}>ESTADO DE HOMOLOGACIÓN</Text>
-                  <Text style={[styles.txtAprobadoSub, { color: cronoAprobado ? colors.success : colors.danger }]}>
-                    {cronoAprobado ? 'Aprobada para entrar a la cancha' : 'Rechazada (Sobrepasa el límite)'}
-                  </Text>
-                </View>
-                <Switch
-                  value={cronoAprobado}
-                  onValueChange={setCronoAprobado}
-                  trackColor={{ false: colors.danger, true: colors.primary }}
-                />
-              </View>
-              </Pressable>
-            </ScrollView>
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalCronoVisible(false);
-                }}
-              >
-                <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBotonConfirmar, guardandoCrono && styles.botonDeshabilitado]}
-                onPress={handleGuardarCrono}
-                disabled={guardandoCrono}
-              >
-                {guardandoCrono ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={styles.modalTextoConfirmar}>GUARDAR CRONAJE</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* MODAL 3: MAPA TÁCTICO SATELITAL                          */}
-      {/* ======================================================== */}
-      <Modal
+      <ModalMapaTactico
         visible={modalMapaVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalMapaVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { height: '80%', alignItems: 'center' }]}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="map-legend" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>MAPA TÁCTICO DEL TERRENO</Text>
-                <Text style={styles.modalSubtitulo}>Cuadrícula satelital y puntos de control</Text>
-              </View>
-            </View>
+        onClose={() => setModalMapaVisible(false)}
+        mapaTacticoUrl={evento.mapaTacticoUrl}
+      />
 
-            {evento.mapaTacticoUrl ? (
-              <Image
-                source={{ uri: evento.mapaTacticoUrl }}
-                style={styles.imgMapaTacticoModal}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={styles.sinMapaBox}>
-                <Text style={styles.txtSinCrono}>No se ha cargado una imagen táctica del mapa.</Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.btnCerrarModalTacsop}
-              onPress={() => setModalMapaVisible(false)}
-            >
-              <Text style={styles.txtBtnCerrarModalTacsop}>CERRAR MAPA</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* MODAL 4: ALERTA TÁCTICA BLIND MAN / ALTO AL FUEGO        */}
-      {/* ======================================================== */}
-      <Modal
+      <ModalAlertaBlindMan
         visible={modalBlindManVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalBlindManVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBlindManCard}>
-            <MaterialCommunityIcons name="alert-octagon" size={48} color={colors.danger} />
-            <Text style={styles.tituloBlindMan}>¡ALTO AL FUEGO INMEDIATO!</Text>
-            <Text style={styles.subtituloBlindMan}>PROCEDIMIENTO DE EMERGENCIA TÁCTICA</Text>
+        onClose={() => setModalBlindManVisible(false)}
+        frecuenciaEmergencia={evento.tacsop?.frecuenciaEmergencia}
+      />
 
-            <Text style={styles.txtBlindManDesc}>
-              En caso de accidente real, presencia de civiles sin protección ocular o emergencia médica en la cancha:
-            </Text>
-
-            <View style={styles.blindManInstruccionesBox}>
-              <Text style={styles.txtBlindManPaso}>1. Grita en voz alta: "¡BLIND MAN! ¡ALTO AL FUEGO!"</Text>
-              <Text style={styles.txtBlindManPaso}>2. Pon tu réplica en SEGURO apuntando al suelo.</Text>
-              <Text style={styles.txtBlindManPaso}>
-                3. Sintoniza el canal de radio de emergencia:
-              </Text>
-              <Text style={styles.frecuenciaBlindManDestacada}>
-                {evento.tacsop?.frecuenciaEmergencia || '462.5625 MHz'}
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.btnCerrarBlindMan}
-              onPress={() => setModalBlindManVisible(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.txtBtnCerrarBlindMan}>ENTERADO • PROTOCOLO COMPRENDIDO</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* MODAL 5: NUEVA ORDEN DE MISIÓN TÁCTICA (ORGANIZADOR)     */}
-      {/* ======================================================== */}
-      <Modal
+      <ModalAsignarMision
         visible={modalMisionVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setModalMisionVisible(false);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={Keyboard.dismiss}
-            accessible={false}
-          />
-          <View style={[styles.modalContent, { maxHeight: '88%' }]}>
-            <Pressable
-              style={styles.modalHeaderQr}
-              onPress={Keyboard.dismiss}
-              accessible={false}
-            >
-              <MaterialCommunityIcons name="target" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>ASIGNAR ORDEN DE MISIÓN</Text>
-                <Text style={styles.modalSubtitulo}>Directiva táctica de combate para facciones</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalMisionVisible(false);
-                }}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </Pressable>
+        onClose={() => setModalMisionVisible(false)}
+        bandos={evento.bandos || []}
+        misionTitulo={misionTitulo}
+        setMisionTitulo={setMisionTitulo}
+        misionBandoId={misionBandoId}
+        setMisionBandoId={setMisionBandoId}
+        misionDescLider={misionDescLider}
+        setMisionDescLider={setMisionDescLider}
+        misionDescOperadores={misionDescOperadores}
+        setMisionDescOperadores={setMisionDescOperadores}
+        misionFotoUrl={misionFotoUrl}
+        guardandoMision={guardandoMision}
+        onSeleccionarFotoGaleria={handleSeleccionarFotoMisionGaleria}
+        onTomarFotoCamara={handleTomarFotoMisionCamara}
+        onQuitarFoto={handleQuitarFotoMision}
+        onCrearMision={handleCrearMision}
+      />
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              style={{ marginVertical: 8, width: '100%' }}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-            >
-              <Pressable onPress={Keyboard.dismiss} accessible={false}>
-              {/* 1. Nombre / Título de la Misión */}
-              <Text style={styles.lblFormMision}>NOMBRE DE LA MISIÓN:</Text>
-              <TextInput
-                style={styles.inputMision}
-                placeholder="Ej: Captura de Puesto Radio Echo"
-                placeholderTextColor={colors.textMuted}
-                value={misionTitulo}
-                onChangeText={setMisionTitulo}
-                returnKeyType="done"
-              />
-
-              {/* 2. Facción Destinataria */}
-              <Text style={styles.lblFormMision}>FACCIÓN DESTINATARIA:</Text>
-              <View style={styles.selectorFaccionesMisionRow}>
-                {(evento.bandos || []).map((b) => {
-                  const sel = misionBandoId === b.id;
-                  return (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[
-                        styles.chipBandoMision,
-                        sel && { borderColor: b.colorHex || colors.primary, backgroundColor: 'rgba(255,255,255,0.08)' },
-                      ]}
-                      onPress={() => {
-                        Keyboard.dismiss();
-                        setMisionBandoId(b.id);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <View style={[styles.colorDotMini, { backgroundColor: b.colorHex || colors.primary }]} />
-                      <Text style={[styles.txtChipBandoMision, sel && { color: b.colorHex || colors.primary, fontWeight: 'bold' }]}>
-                        {b.nombre}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* 3. Briefing Confidencial para el Líder de Facción */}
-              <Text style={styles.lblFormMision}>
-                BRIEFING CONFIDENCIAL PARA EL LÍDER:
-              </Text>
-              <Text style={styles.lblAyudaMision}>
-                Solo el líder de la facción podrá ver estas directivas e instrucciones clasificadas.
-              </Text>
-              <TextInput
-                style={[styles.inputMision, styles.inputMisionMultilinea]}
-                placeholder="Coordenadas exactas, objetivos secundarios, condiciones de extracción o información confidencial..."
-                placeholderTextColor={colors.textMuted}
-                value={misionDescLider}
-                onChangeText={setMisionDescLider}
-                multiline
-                numberOfLines={3}
-                returnKeyType="done"
-                submitBehavior="blurAndSubmit"
-                onSubmitEditing={Keyboard.dismiss}
-              />
-
-              {/* 4. Orden General para Operadores */}
-              <Text style={styles.lblFormMision}>
-                ORDEN GENERAL PARA LOS OPERADORES:
-              </Text>
-              <Text style={styles.lblAyudaMision}>
-                Directiva visible para todos los miembros de la facción en su radar de combate.
-              </Text>
-              <TextInput
-                style={[styles.inputMision, styles.inputMisionMultilinea]}
-                placeholder="Orden táctica visible para toda la tropa (ej: Avanzar a sector norte y asegurar perímetro)..."
-                placeholderTextColor={colors.textMuted}
-                value={misionDescOperadores}
-                onChangeText={setMisionDescOperadores}
-                multiline
-                numberOfLines={3}
-                returnKeyType="done"
-                submitBehavior="blurAndSubmit"
-                onSubmitEditing={Keyboard.dismiss}
-              />
-
-              {/* 5. Foto o Mapa Táctico Adjunto para el Líder */}
-              <Text style={styles.lblFormMision}>
-                FOTO ADJUNTA / CROQUIS PARA EL LÍDER (OPCIONAL):
-              </Text>
-              <Text style={styles.lblAyudaMision}>
-                Adjunta una evidencia o croquis desde tu galería o captura una foto del terreno.
-              </Text>
-
-              {misionFotoUrl ? (
-                <View style={styles.previewFotoAdjuntaBox}>
-                  <Image source={{ uri: misionFotoUrl }} style={styles.imgFotoAdjuntaPreview} resizeMode="cover" />
-                  <View style={styles.accionesFotoAdjuntaRow}>
-                    <TouchableOpacity
-                      style={styles.btnCambiarFotoAdjunta}
-                      onPress={handleSeleccionarFotoMisionGaleria}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="image-edit" size={14} color={colors.primary} style={{ marginRight: 4 }} />
-                      <Text style={styles.txtBtnCambiarFotoAdjunta}>Cambiar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.btnQuitarFotoAdjunta}
-                      onPress={handleQuitarFotoMision}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="trash-can-outline" size={14} color={colors.danger} style={{ marginRight: 4 }} />
-                      <Text style={styles.txtBtnQuitarFotoAdjunta}>Quitar</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.botonesAdjuntarFotoRow}>
-                  <TouchableOpacity
-                    style={styles.btnAdjuntarGaleria}
-                    onPress={handleSeleccionarFotoMisionGaleria}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons name="image-plus" size={18} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.txtBtnAdjuntarFoto}>GALERÍA</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.btnAdjuntarCamara}
-                    onPress={handleTomarFotoMisionCamara}
-                    activeOpacity={0.8}
-                  >
-                    <MaterialCommunityIcons name="camera" size={18} color="#000" style={{ marginRight: 6 }} />
-                    <Text style={styles.txtBtnAdjuntarFotoCamara}>TOMAR FOTO</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              </Pressable>
-            </ScrollView>
-
-            <View style={styles.modalBotones}>
-              <TouchableOpacity
-                style={styles.modalBotonCancelar}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setModalMisionVisible(false);
-                }}
-              >
-                <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBotonConfirmar, guardandoMision && styles.botonDeshabilitado, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
-                onPress={handleCrearMision}
-                disabled={guardandoMision}
-              >
-                {guardandoMision ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="radio-tower" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.modalTextoConfirmar}>TRANSMITIR MISIÓN</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* MODAL 6: VISOR DE FOTO / MAPA DE MISIÓN TÁCTICA          */}
-      {/* ======================================================== */}
-      <Modal
+      <ModalFotoMision
         visible={modalFotoMisionVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalFotoMisionVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { height: '80%', alignItems: 'center' }]}>
-            <View style={styles.modalHeaderQr}>
-              <MaterialCommunityIcons name="image" size={24} color={colors.primary} />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.modalTitulo}>FOTO TÁCTICA ADJUNTA</Text>
-                <Text style={styles.modalSubtitulo}>Croquis clasificado para el mando</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setModalFotoMisionVisible(false)}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {fotoMisionSeleccionada ? (
-              <Image
-                source={{ uri: fotoMisionSeleccionada }}
-                style={styles.imgFotoMisionGrande}
-                resizeMode="contain"
-              />
-            ) : null}
-
-            <TouchableOpacity
-              style={styles.btnCerrarModalTacsop}
-              onPress={() => setModalFotoMisionVisible(false)}
-            >
-              <Text style={styles.txtBtnCerrarModalTacsop}>CERRAR FOTO</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setModalFotoMisionVisible(false)}
+        fotoUrl={fotoMisionSeleccionada}
+      />
 
       {/* Modal Táctico Unificado para Confirmaciones y Avisos */}
       <ModalConfirmacionTactico
@@ -5222,9 +3437,9 @@ const styles = StyleSheet.create({
   badgeAlistadoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: 'rgba(56, 161, 105, 0.4)',
+    borderColor: colors.successBorder,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
@@ -5248,11 +3463,11 @@ const styles = StyleSheet.create({
   },
   estadoTagEnCurso: {
     borderColor: colors.danger,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: colors.dangerSoft,
   },
   estadoTagFinalizado: {
     borderColor: colors.success,
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
   },
   estadoTagCancelado: {
     borderColor: colors.danger,
@@ -5267,7 +3482,7 @@ const styles = StyleSheet.create({
   titulo: {
     color: colors.text,
     fontSize: 20,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     marginBottom: 12,
   },
   metaFila: {
@@ -5294,12 +3509,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeInscripcionAbierta: {
-    backgroundColor: 'rgba(56, 161, 105, 0.1)',
-    borderColor: 'rgba(56, 161, 105, 0.3)',
+    backgroundColor: colors.successSoft,
+    borderColor: colors.successBorder,
   },
   badgeInscripcionCerrada: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warningBorder,
   },
   txtBadgeInscripcion: {
     fontSize: 11,
@@ -5335,20 +3550,21 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   badgePrivacidadCerrado: {
-    backgroundColor: 'rgba(214, 158, 46, 0.15)',
+    backgroundColor: colors.warningSoft,
   },
   badgePrivacidadAbierto: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
   },
   textoPrivacidadSmall: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   codigoValor: {
     color: colors.primary,
     fontSize: 22,
-    fontWeight: '900',
+    fontFamily: fonts.monoBold,
+    fontVariant: ['tabular-nums'],
     letterSpacing: 3,
     marginBottom: 4,
   },
@@ -5372,7 +3588,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   txtBtnCompartir: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -5398,9 +3614,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.dangerBorder,
     borderRadius: 6,
     paddingVertical: 10,
     marginTop: 12,
@@ -5416,8 +3632,8 @@ const styles = StyleSheet.create({
   },
   seccionTitulo: {
     color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontFamily: fonts.displayBold,
     letterSpacing: 1.5,
     marginBottom: 10,
   },
@@ -5434,11 +3650,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   panelOrganizadorCard: {
-    backgroundColor: 'rgba(56, 161, 105, 0.08)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(56, 161, 105, 0.35)',
+    borderColor: colors.primaryBorder,
     marginBottom: 16,
   },
   panelOrganizadorHeader: {
@@ -5480,16 +3696,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#D97706',
+    backgroundColor: colors.warning,
     borderRadius: 8,
     paddingVertical: 11,
     paddingHorizontal: 14,
   },
-  btnReabrirInscripciones: {
-    backgroundColor: '#059669',
-  },
   txtBtnToggleInscripciones: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -5499,7 +3712,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.borderSubtle,
   },
   coorganizadoresHeader: {
     flexDirection: 'row',
@@ -5553,7 +3766,7 @@ const styles = StyleSheet.create({
     marginLeft: 3,
   },
   panelLiderFaccionCard: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
@@ -5561,7 +3774,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tituloPanelLiderFaccion: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -5581,7 +3794,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   textoBtnIniciarEventoPrincipal: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -5602,61 +3815,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  btnFinalizarEvento: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#C53030',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  textoBtnFinalizarEvento: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  panelBotonesSecundarios: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  btnModificarEvento: {
-    flex: 1,
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#D69E2E',
-  },
-  textoBtnModificar: {
-    color: '#D69E2E',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  btnCancelarEvento: {
-    flex: 1,
-    backgroundColor: 'rgba(229, 62, 62, 0.15)',
-    borderRadius: 8,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.danger,
-  },
-  textoBtnCancelar: {
-    color: colors.danger,
-    fontSize: 11,
-    fontWeight: '800',
-  },
   bannerEventoFinalizado: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(214, 158, 46, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
@@ -5683,9 +3845,10 @@ const styles = StyleSheet.create({
   btnNuevaPartidaMini: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
+    minHeight: 36,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: colors.primary,
@@ -5710,9 +3873,9 @@ const styles = StyleSheet.create({
   avisoHistorialEnCurso: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 161, 105, 0.08)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(56, 161, 105, 0.2)',
+    borderColor: colors.primaryBorder,
     borderRadius: 8,
     padding: 8,
     marginBottom: 10,
@@ -5735,7 +3898,7 @@ const styles = StyleSheet.create({
   },
   partidaCardFinalizada: {
     borderColor: 'rgba(16, 185, 129, 0.4)',
-    borderLeftColor: '#10B981',
+    borderLeftColor: colors.success,
     backgroundColor: '#0F1D17',
   },
   partidaCardEnCurso: {
@@ -5763,14 +3926,14 @@ const styles = StyleSheet.create({
   badgeModalidad: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   txtBadgeModalidad: {
     color: colors.primary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
   },
   partidaEstadoBadge: {
@@ -5782,15 +3945,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeFinalizada: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: colors.successSoft,
     borderColor: colors.success,
   },
   badgeEnCurso: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: colors.dangerSoft,
     borderColor: colors.danger,
   },
   badgePendiente: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderColor: colors.warning,
   },
   partidaEstadoTexto: {
@@ -5828,7 +3991,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.borderSubtle,
   },
   cardPartidaAlineacionHeader: {
     flexDirection: 'row',
@@ -5849,7 +4012,7 @@ const styles = StyleSheet.create({
   },
   cardPartidaAlineacionDiv: {
     width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.borderSubtle,
     marginHorizontal: 8,
   },
   txtCardPartidaBandoNombre: {
@@ -5864,13 +4027,13 @@ const styles = StyleSheet.create({
   },
   txtCardPartidaRol: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '600',
   },
   cardPartidaMvpPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -5878,7 +4041,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   txtCardPartidaMvpPill: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 10,
     fontWeight: '800',
     marginLeft: 3,
@@ -5886,7 +4049,7 @@ const styles = StyleSheet.create({
   badgeEstadoVotacionMvp: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 5,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -5894,7 +4057,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   txtEstadoVotacionMvp: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -5924,12 +4087,6 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     marginBottom: 10,
   },
-  bandoHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
   bandoHeaderTouch: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -5940,17 +4097,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   badgeTuBandoMini: {
-    backgroundColor: '#064e3b',
+    backgroundColor: colors.successDark,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: colors.success,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 1,
     marginLeft: 8,
   },
   txtBadgeTuBandoMini: {
-    color: '#10B981',
-    fontSize: 9,
+    color: colors.success,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -5976,7 +4133,7 @@ const styles = StyleSheet.create({
   liderFaccionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -5988,7 +4145,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   txtLiderFaccionDestacado: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontWeight: '800',
   },
   btnDesignarLiderMini: {
@@ -6001,7 +4158,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txtBtnDesignarLiderMini: {
-    color: '#F59E0B',
+    color: colors.warning,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -6012,7 +4169,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   bandoActualBadge: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 6,
@@ -6027,13 +4184,13 @@ const styles = StyleSheet.create({
   btnBajarseBandoMini: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: colors.dangerBorder,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    minHeight: 28,
+    minHeight: 36,
     justifyContent: 'center',
   },
   txtBtnBajarseBandoMini: {
@@ -6049,9 +4206,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   textoBotonUnirse: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   bannerInscripcionCerradaMini: {
@@ -6092,7 +4249,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   txtBtnHabilitarEscuadrasMini: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '900',
   },
@@ -6112,27 +4269,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
   },
-  badgeInscripcionAbiertaEscuadras: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  txtBadgeInscripcionAbiertaEscuadras: {
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: '800',
-  },
   sinEscuadrasBox: {
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.surfaceSubtle,
   },
   txtSinEscuadras: {
     color: colors.textMuted,
@@ -6187,7 +4329,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   badgeTuEscuadra: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 3,
@@ -6201,10 +4343,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
-    minHeight: 28,
+    minHeight: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
   },
   txtBtnSalirEscuadraMini: {
     color: colors.danger,
@@ -6222,7 +4364,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   txtBtnUnirseEscuadra: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -6232,7 +4374,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.surfaceSubtle,
   },
   txtTituloReservas: {
     color: colors.textMuted,
@@ -6288,7 +4430,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   txtAlistarsePichangaMini: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -6300,8 +4442,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   txtTuPerfilMini: {
-    color: '#000',
-    fontSize: 9,
+    color: colors.onPrimary,
+    fontSize: 11,
     fontWeight: '900',
   },
   jugadorInscritoRow: {
@@ -6310,11 +4452,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardSinAsignar: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: colors.warningBorder,
     marginTop: 10,
   },
   headerSinAsignar: {
@@ -6363,7 +4505,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    borderBottomColor: colors.surfaceSubtle,
   },
   txtTituloSwitchRecordatorio: {
     color: colors.text,
@@ -6378,7 +4520,7 @@ const styles = StyleSheet.create({
   avisoNotifDesactivadasGlobal: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 8,
     padding: 10,
     marginTop: 12,
@@ -6394,7 +4536,7 @@ const styles = StyleSheet.create({
   bannerEventoCanceladoGlobal: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: colors.dangerSoft,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
@@ -6415,7 +4557,7 @@ const styles = StyleSheet.create({
   bannerEventoFinalizadoGlobal: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
@@ -6435,348 +4577,6 @@ const styles = StyleSheet.create({
   },
   botonDeshabilitado: {
     opacity: 0.5,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 18,
-    width: '100%',
-    maxHeight: '85%',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  modalContentQr: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 18,
-    width: '100%',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    alignItems: 'center',
-  },
-  modalHeaderQr: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    width: '100%',
-  },
-  modalTitulo: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  modalSubtitulo: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  rolesModalGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginVertical: 12,
-  },
-  rolModalChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  rolModalChipActivo: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
-  },
-  rolModalTexto: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  rolModalTextoActivo: {
-    color: colors.primary,
-  },
-  rolModalCheck: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '900',
-    marginLeft: 4,
-  },
-  modalBotones: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
-  },
-  modalBotonCancelar: {
-    flex: 1,
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    minHeight: 46,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  modalTextoCancelar: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  modalBotonConfirmar: {
-    flex: 2,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    minHeight: 46,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTextoConfirmar: {
-    color: '#000',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  inputModalLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  inputModal: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    color: colors.text,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-  },
-  inputModalArea: {
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
-  itemMotivoChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginBottom: 6,
-  },
-  itemMotivoChipActivo: {
-    borderColor: colors.danger,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-  },
-  txtMotivoChip: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  txtMotivoChipActivo: {
-    color: '#fff',
-  },
-  btnConfirmarCancelarEvento: {
-    flex: 2,
-    backgroundColor: colors.danger,
-    borderRadius: 8,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  txtConfirmarCancelarEvento: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  qrTabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    padding: 3,
-    marginBottom: 10,
-    width: '100%',
-  },
-  qrTabBtn: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 7,
-    borderRadius: 6,
-  },
-  qrTabBtnActivo: {
-    backgroundColor: colors.primary,
-  },
-  qrTabTxt: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  qrTabTxtActivo: {
-    color: '#000',
-  },
-  bandoSelectorQrRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 10,
-    width: '100%',
-  },
-  chipBandoQr: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 5,
-  },
-  dotBando: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  txtChipBando: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  qrContainerBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 4,
-  },
-  qrImage: {
-    width: 180,
-    height: 180,
-  },
-  qrCodigoFooter: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  qrCodigoSub: {
-    color: '#666',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  qrCodigoText: {
-    color: '#000',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 2,
-    marginVertical: 2,
-  },
-  qrInstruccion: {
-    color: '#666',
-    fontSize: 10,
-    textAlign: 'center',
-  },
-  btnCompartirModal: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 11,
-  },
-  itemModalidadCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginBottom: 6,
-  },
-  itemModalidadCardActivo: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56, 161, 105, 0.1)',
-  },
-  txtModalidadNombre: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  txtModalidadNombreActivo: {
-    color: colors.primary,
-  },
-  txtModalidadDesc: {
-    color: colors.textMuted,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  botonesCantidadRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginVertical: 6,
-  },
-  btnChipCantidad: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 6,
-    paddingVertical: 8,
-  },
-  btnChipCantidadActivo: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
-  },
-  txtChipCantidad: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  txtChipCantidadActivo: {
-    color: colors.primary,
-    fontWeight: '900',
-  },
-  itemCandidatoLider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginBottom: 6,
-  },
-  itemCandidatoLiderActivo: {
-    borderColor: '#F59E0B',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-  },
-  txtCandidatoNombre: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  txtCandidatoRol: {
-    color: colors.textMuted,
-    fontSize: 10,
-    marginTop: 1,
   },
   terrenoGpsCard: {
     backgroundColor: colors.card,
@@ -6821,7 +4621,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   txtBtnGpsApp: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -6835,12 +4635,12 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   btnBlindManAlert: {
-    backgroundColor: '#7F1D1D',
+    backgroundColor: colors.dangerDark,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#EF4444',
+    borderColor: colors.danger,
     padding: 12,
-    shadowColor: '#EF4444',
+    shadowColor: colors.danger,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -6855,7 +4655,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -6870,7 +4670,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   txtBtnBlindManAlert: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.8,
@@ -6914,38 +4714,20 @@ const styles = StyleSheet.create({
   },
   baofengCanalEtiqueta: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
   },
   baofengCanalFrec: {
     color: colors.text,
     fontSize: 13,
-    fontWeight: '900',
+    fontFamily: fonts.monoBold,
+    fontVariant: ['tabular-nums'],
     marginTop: 2,
   },
   baofengCanalSubtono: {
     color: colors.textSecondary,
     fontSize: 10,
     marginTop: 2,
-  },
-  fasesHudCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 12,
-  },
-  fasesHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  fasesHeaderTitulo: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
   listaFasesRow: {
     gap: 6,
@@ -6961,31 +4743,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  itemFaseBoxActiva: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56, 161, 105, 0.1)',
-  },
-  itemFaseBoxCompletada: {
-    opacity: 0.6,
-  },
   txtFaseNombre: {
     color: colors.text,
     fontSize: 12,
     fontWeight: '800',
-  },
-  txtFaseNombreActiva: {
-    color: colors.primary,
-  },
-  badgeFaseEnCurso: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  txtBadgeFaseEnCurso: {
-    color: '#000',
-    fontSize: 8,
-    fontWeight: '900',
   },
   badgeFaseCrono: {
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -6995,7 +4756,7 @@ const styles = StyleSheet.create({
   },
   txtBadgeFaseCrono: {
     color: colors.textSecondary,
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: '800',
   },
   txtFaseDesc: {
@@ -7010,7 +4771,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   txtBtnActivarFase: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '900',
   },
@@ -7054,275 +4815,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  btnRegistrarCronoStaff: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  txtBtnRegistrarCronoStaff: {
-    color: '#000',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  sinCronoBox: {
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  txtSinCrono: {
-    color: colors.textMuted,
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  listaMisReplicas: {
-    gap: 6,
-  },
-  itemReplicaCronada: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 8,
-  },
-  txtTipoReplica: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  txtCatReplica: {
-    color: colors.text,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  badgeAprobadoCrono: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  badgeRechazadoCrono: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-  },
-  txtBadgeAprobadoCrono: {
-    color: colors.success,
-    fontSize: 9,
-    fontWeight: '900',
-  },
-  txtStatsCrono: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  tacsopModalSeccion: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.6,
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  tacsopModalCard: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 10,
-    marginBottom: 8,
-  },
-  txtTacsopFila: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 18,
-  },
-  txtTacsopHighlight: {
-    color: colors.text,
-    fontWeight: '800',
-  },
-  filaModalCronoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  txtCatCronoModal: {
-    color: colors.text,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  txtValCronoModal: {
-    color: colors.textSecondary,
-    fontSize: 10,
-  },
-  btnCerrarModalTacsop: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 8,
-    width: '100%',
-  },
-  txtBtnCerrarModalTacsop: {
-    color: '#000',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  chipJugadorCrono: {
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginRight: 6,
-  },
-  chipJugadorCronoActivo: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
-  },
-  txtChipJugadorCrono: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  txtChipJugadorCronoActivo: {
-    color: colors.primary,
-    fontWeight: '900',
-  },
-  chipsRowSelectorCrono: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  chipTipoRep: {
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  chipTipoRepActivo: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(56, 161, 105, 0.2)',
-  },
-  txtChipTipoRep: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  txtChipTipoRepActivo: {
-    color: colors.primary,
-    fontWeight: '900',
-  },
-  switchAprobadoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 10,
-    marginTop: 8,
-  },
-  txtAprobadoTitulo: {
-    color: colors.text,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  txtAprobadoSub: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  imgMapaTacticoModal: {
-    width: '100%',
-    height: 350,
-    borderRadius: 8,
-    marginVertical: 10,
-  },
-  sinMapaBox: {
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBlindManCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: colors.danger,
-    padding: 20,
-    alignItems: 'center',
-    width: '90%',
-  },
-  tituloBlindMan: {
-    color: colors.danger,
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 8,
-  },
-  subtituloBlindMan: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 12,
-  },
-  txtBlindManDesc: {
-    color: colors.text,
-    fontSize: 12,
-    lineHeight: 16,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  blindManInstruccionesBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    padding: 12,
-    width: '100%',
-    marginBottom: 16,
-    gap: 6,
-  },
-  txtBlindManPaso: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 17,
-  },
-  frecuenciaBlindManDestacada: {
-    color: colors.danger,
-    fontSize: 22,
-    fontWeight: '900',
-    fontVariant: ['tabular-nums'],
-    textAlign: 'center',
-    letterSpacing: 1.5,
-    marginTop: 6,
-  },
-  btnCerrarBlindMan: {
-    backgroundColor: colors.danger,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    width: '100%',
-  },
-  txtBtnCerrarBlindMan: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
   // Estilos Tácticos Dinámicos: Pre-Misión & Crono en Vivo
   preMisionCard: {
     backgroundColor: colors.card,
@@ -7354,7 +4846,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   badgePresetTacsop: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 6,
@@ -7406,7 +4898,7 @@ const styles = StyleSheet.create({
   },
   txtAvisoPreMisionCrono: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontStyle: 'italic',
     marginTop: 4,
   },
@@ -7431,94 +4923,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  cronoFaseCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.warning,
-    padding: 14,
-    marginBottom: 12,
-  },
-  cronoFaseHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-    paddingBottom: 8,
-  },
-  cronoFaseTitulo: {
-    color: colors.warning,
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  cronoFaseSub: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  badgeFaseCronoActiva: {
-    backgroundColor: colors.warning,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  txtBadgeFaseCronoActiva: {
-    color: '#000',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  staffCronoBox: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 12,
-    marginVertical: 6,
-  },
-  txtStaffCronoCount: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  btnCronoStaffGrande: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  txtBtnCronoStaffGrande: {
-    color: '#000',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  alertaCronoPendiente: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 8,
-    padding: 10,
-    gap: 8,
-  },
-  txtAlertaCronoPendienteTitulo: {
-    color: colors.warning,
-    fontSize: 11,
-    fontWeight: '900',
-    marginBottom: 2,
-  },
-  txtAlertaCronoPendiente: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 15,
-  },
   btnAlistamientoMilsimPrincipal: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -7528,7 +4932,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   txtBtnAlistamientoMilsimPrincipal: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -7539,668 +4943,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '600',
   },
-  modalContentAlistamiento: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 18,
-    width: '100%',
-    maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  headerAlistamiento: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  tituloAlistamiento: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    padding: 8,
-    marginBottom: 12,
-  },
-  stepItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepCircleActivo: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  stepCircleCompletado: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  txtStepNumber: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  txtStepNumberActivo: {
-    color: '#000',
-  },
-  txtStepLabel: {
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  txtStepLabelActivo: {
-    color: colors.primary,
-  },
-  txtStepLabelCompletado: {
-    color: colors.success,
-  },
-  cuerpoPasoAlistamiento: {
-    paddingVertical: 4,
-  },
-  subtituloPasoAlistamiento: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  descPasoAlistamiento: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 15,
-    marginBottom: 10,
-  },
-  tacsopBoxAlistamiento: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 10,
-    marginBottom: 10,
-  },
-  tacsopBoxTitulo: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '900',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  tablaCronoAlistamiento: {
-    gap: 4,
-  },
-  filaCronoAlistamiento: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  colCatCrono: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    width: 65,
-  },
-  colStatsCrono: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-    flex: 1,
-    textAlign: 'right',
-  },
-  reglaItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  txtReglaItem: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    flex: 1,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 12,
-    marginTop: 4,
-    gap: 10,
-  },
-  checkboxContainerAceptado: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-  },
-  txtCheckbox: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    flex: 1,
-    lineHeight: 15,
-  },
-  txtCheckboxAceptado: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  cardReplicaAlistamiento: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 12,
-    marginBottom: 10,
-  },
-  headerReplicaAlistamiento: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.07)',
-    paddingBottom: 6,
-  },
-  txtTipoReplicaHeader: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  labelCampoReplica: {
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: '800',
-    marginBottom: 4,
-    marginTop: 4,
-  },
-  rolesGridReplica: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 6,
-  },
-  chipCatReplica: {
-    backgroundColor: colors.card,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  chipCatReplicaActivo: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderColor: colors.primary,
-  },
-  txtChipCatReplica: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  txtChipCatReplicaActivo: {
-    color: colors.primary,
-    fontWeight: '900',
-  },
-  inputReplicaModelo: {
-    backgroundColor: colors.card,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    color: '#fff',
-    fontSize: 11,
-  },
-  inputReplicaFps: {
-    backgroundColor: colors.card,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  cajaJoulesCalculados: {
-    backgroundColor: colors.card,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    alignItems: 'center',
-  },
-  txtSubJoules: {
-    color: colors.textMuted,
-    fontSize: 8,
-    fontWeight: '800',
-  },
-  txtJoulesCalculados: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  botonesAgregarReplicasRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  btnAgregarReplicaMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.inputBg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 4,
-  },
-  txtBtnAgregarReplicaMini: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  cardBandoAlistamiento: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 12,
-    marginBottom: 8,
-  },
-  cardBandoAlistamientoSeleccionado: {
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-  },
-  cardBandoAlistamientoLleno: {
-    opacity: 0.5,
-  },
-  dotBandoAlistamiento: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 10,
-  },
-  nombreBandoAlistamiento: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  liderBandoAlistamiento: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  cupoBandoAlistamiento: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  badgeCupoLleno: {
-    color: colors.danger,
-    fontSize: 9,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  badgeSeleccionado: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  resumenAlistamientoCard: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 12,
-    marginBottom: 10,
-  },
-  filaResumenItem: {
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  lblResumen: {
-    color: colors.textMuted,
-    fontSize: 9,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  valResumenDestacado: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  valResumen: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  notificacionesAlistamientoBox: {
-    backgroundColor: colors.inputBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 12,
-  },
-  tituloNotifAlistamiento: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  descNotifAlistamiento: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    marginBottom: 10,
-    lineHeight: 14,
-  },
-  switchNotifRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  txtSwitchNotifTitulo: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  txtSwitchNotifDesc: {
-    color: colors.textMuted,
-    fontSize: 9,
-    marginTop: 1,
-  },
-  footerAlistamientoBotones: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-    paddingTop: 12,
-  },
-  btnVolverAlistamiento: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    backgroundColor: colors.inputBg,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  txtBtnVolverAlistamiento: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  btnSiguienteAlistamiento: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 11,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-  },
-  txtBtnSiguienteAlistamiento: {
-    color: '#000',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  btnFinalizarAlistamiento: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-  },
-  txtBtnFinalizarAlistamiento: {
-    color: '#000',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  btnSiguienteFaseMilsim: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  txtBtnSiguienteFaseMilsim: {
-    color: '#000',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  txtSubBtnSiguienteFaseMilsim: {
-    color: '#1a1a1a',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  btnAgregarReplicaStaffHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  txtBtnAgregarReplicaStaffHeader: {
-    color: '#000',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  cronoBuscadorStaffBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#181818',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    marginBottom: 8,
-  },
-  inputCronoBuscadorStaff: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 11,
-    paddingVertical: 0,
-  },
-  tarjetaOperadorCronoStaff: {
-    backgroundColor: '#181818',
-    borderRadius: 6,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  headerOperadorCronoStaff: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-    paddingBottom: 6,
-  },
-  colorDotMini: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  txtAliasCronoStaff: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  txtRolCronoStaff: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  badgeAprobadoCronoMini: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  badgeVerde: {
-    backgroundColor: '#064e3b',
-  },
-  badgeAmarillo: {
-    backgroundColor: '#78350f',
-  },
-  badgeRojo: {
-    backgroundColor: '#7f1d1d',
-  },
-  txtBadgeCronoMini: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  sinReplicasCronoBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  txtSinReplicasCrono: {
-    color: colors.textMuted,
-    fontSize: 10,
-  },
-  btnAgregarReplicaStaffMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
-  },
-  txtBtnAgregarReplicaStaffMini: {
-    color: '#000',
-    fontSize: 9,
-    fontWeight: '800',
-    marginLeft: 2,
-  },
-  filaReplicaCronoStaff: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    padding: 6,
-    borderRadius: 4,
-  },
-  txtTipoReplicaStaff: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  txtDetalleReplicaStaff: {
-    color: colors.textMuted,
-    fontSize: 9,
-    marginTop: 1,
-  },
-  inputFpsRapido: {
-    width: 58,
-    height: 28,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 4,
-    color: '#fff',
-    fontSize: 11,
-    textAlign: 'center',
-    paddingVertical: 0,
-  },
-  btnAccionCronoRapida: {
-    width: 28,
-    height: 28,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnAprobarCronoRapido: {
-    backgroundColor: '#10B981',
-  },
-  btnRechazarCronoRapido: {
-    backgroundColor: '#EF4444',
-  },
-  btnEliminarCronoMini: {
-    padding: 4,
-  },
-  bannerCronoHabilitado: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#064e3b',
-    borderWidth: 1,
-    borderColor: '#10B981',
-    borderRadius: 8,
-    padding: 10,
-  },
-  txtBannerCronoHabilitadoTitulo: {
-    color: '#10B981',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  txtBannerCronoHabilitadoDesc: {
-    color: '#d1fae5',
-    fontSize: 10,
-    marginTop: 2,
-  },
-  bannerCronoPendiente: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#451a03',
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 8,
-    padding: 10,
-  },
-  txtBannerCronoPendienteTitulo: {
-    color: colors.warning,
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  txtBannerCronoPendienteDesc: {
-    color: '#fef3c7',
-    fontSize: 10,
-    marginTop: 2,
-  },
   bannerCronoEscuadraHabilitado: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.4)',
     borderRadius: 6,
@@ -8208,7 +4954,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   txtBannerCronoEscuadraHabilitado: {
-    color: '#10B981',
+    color: colors.success,
     fontSize: 10,
     fontWeight: '700',
     flex: 1,
@@ -8216,9 +4962,9 @@ const styles = StyleSheet.create({
   bannerCronoEscuadraPendiente: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    borderColor: colors.warningBorder,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -8232,24 +4978,24 @@ const styles = StyleSheet.create({
   badgeFase0Escuadras: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   txtBadgeFase0Escuadras: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
   },
   seccionFasesOrganizador: {
     marginTop: 4,
     marginBottom: 10,
-    backgroundColor: '#161616',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.borderSubtle,
   },
   seccionFasesOrganizadorHeader: {
     flexDirection: 'row',
@@ -8263,25 +5009,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   itemFaseBoxActivaVerde: {
-    borderColor: '#10B981',
+    borderColor: colors.success,
     borderWidth: 2,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    backgroundColor: colors.successSoft,
   },
   txtFaseNombreActivaVerde: {
-    color: '#10B981',
+    color: colors.success,
     fontWeight: '800',
   },
   badgeFaseActivaVerde: {
-    backgroundColor: '#064e3b',
+    backgroundColor: colors.successDark,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: colors.success,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
   },
   txtBadgeFaseActivaVerde: {
-    color: '#10B981',
-    fontSize: 9,
+    color: colors.success,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -8301,7 +5047,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   txtBtnAbrirConfiguracion: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -8312,7 +5058,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.surfaceSubtle,
     gap: 8,
   },
   btnReabrirInscripcionesConfig: {
@@ -8325,7 +5071,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   txtBtnReabrirInscripcionesConfig: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -8334,7 +5080,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
     borderColor: colors.primary,
     paddingVertical: 9,
@@ -8357,7 +5103,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   txtBtnFinalizarEventoConfig: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -8366,7 +5112,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
     borderColor: colors.danger,
     paddingVertical: 9,
@@ -8380,495 +5126,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   // Estilos de Misiones Tácticas (Fase 2)
-  cardMisionesOrg: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginBottom: 12,
-  },
-  headerMisionesOrg: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  txtTituloMisionesOrg: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  btnNuevaMisionMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  txtBtnNuevaMisionMini: {
-    color: '#000',
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginLeft: 3,
-  },
-  sinMisionesBox: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 8,
-    marginTop: 4,
-    paddingHorizontal: 12,
-  },
-  txtSinMisiones: {
-    color: colors.textMuted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  btnAsignarPrimeraMision: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-  },
-  txtBtnAsignarPrimeraMision: {
-    color: '#000',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  itemMisionOrg: {
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  itemMisionOrgHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 6,
-  },
-  txtItemMisionBando: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  txtItemMisionTitulo: {
-    color: '#F59E0B',
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  badgeEstadoMision: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginLeft: 4,
-  },
-  badgeMisionActiva: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  badgeMisionCompletada: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    borderWidth: 1,
-    borderColor: '#3B82F6',
-  },
-  txtBadgeEstadoMision: {
-    color: '#10B981',
-    fontSize: 9,
-    fontWeight: 'bold',
-  },
-  txtItemMisionDescLider: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 4,
-  },
-  txtItemMisionDescOp: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  btnVerFotoMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-  },
-  txtBtnVerFotoMini: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  accionesMisionOrgRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  btnCompletarMisionMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#059669',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-  },
-  txtBtnCompletarMisionMini: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  btnCancelarMisionMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: colors.danger,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  txtBtnCancelarMisionMini: {
-    color: colors.danger,
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
   // Vista Líder
-  cardMisionLiderVacia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.25)',
-    marginVertical: 6,
-  },
-  txtMisionLiderVaciaTitulo: {
-    color: '#F59E0B',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  txtMisionLiderVaciaDesc: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  cardMisionLiderActiva: {
-    backgroundColor: '#131b14',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#10B981',
-    marginVertical: 6,
-  },
-  headerMisionLiderActiva: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  txtHeaderMisionLiderEtiqueta: {
-    color: '#F59E0B',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  txtMisionLiderTitulo: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  cajaBriefingClasificadoLider: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    borderRadius: 8,
-    padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#F59E0B',
-    marginBottom: 12,
-  },
-  txtTituloBriefingClasificado: {
-    color: '#F59E0B',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  txtCuerpoBriefingClasificado: {
-    color: '#E5E7EB',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  seccionFotoMisionLider: {
-    marginBottom: 12,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  touchFotoMisionLider: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    position: 'relative',
-    height: 160,
-    backgroundColor: '#000',
-  },
-  imgMisionLiderPreview: {
-    width: '100%',
-    height: '100%',
-  },
-  overlayAmpliarFoto: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-  },
-  txtAmpliarFoto: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  cajaOrdenTropasLider: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 8,
-    padding: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    marginBottom: 12,
-  },
-  txtTituloOrdenTropas: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  txtCuerpoOrdenTropas: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  btnReportarCumplimientoLider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#059669',
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  txtBtnReportarCumplimientoLider: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
   // Vista Operador
-  cardMisionOpVacia: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    marginVertical: 6,
-  },
-  txtMisionOpVaciaTitulo: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  txtMisionOpVaciaDesc: {
-    color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  cardMisionOpActiva: {
-    backgroundColor: '#121a15',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    marginVertical: 6,
-  },
-  headerMisionOpActiva: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  txtHeaderMisionOpEtiqueta: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  txtMisionOpTitulo: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  cajaMisionOpContenido: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 8,
-    padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  txtCuerpoMisionOp: {
-    color: '#F3F4F6',
-    fontSize: 13,
-    lineHeight: 19,
-  },
   // Formulario Modal Misión
-  lblFormMision: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-    marginTop: 10,
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  lblAyudaMision: {
-    color: colors.textMuted,
-    fontSize: 10,
-    marginBottom: 6,
-  },
-  inputMision: {
-    backgroundColor: colors.inputBg,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 13,
-  },
-  inputMisionMultilinea: {
-    minHeight: 65,
-    textAlignVertical: 'top',
-  },
-  selectorFaccionesMisionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 6,
-  },
-  chipBandoMision: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  txtChipBandoMision: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginLeft: 6,
-  },
-  imgFotoMisionGrande: {
-    width: '100%',
-    height: '75%',
-    marginVertical: 10,
-    borderRadius: 10,
-  },
-  badgeFaseDebriefingCerrada: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  txtBadgeFaseDebriefingCerrada: {
-    color: '#10B981',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  previewFotoAdjuntaBox: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginBottom: 6,
-  },
-  imgFotoAdjuntaPreview: {
-    width: '100%',
-    height: 140,
-  },
-  accionesFotoAdjuntaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  btnCambiarFotoAdjunta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  txtBtnCambiarFotoAdjunta: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  btnQuitarFotoAdjunta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  txtBtnQuitarFotoAdjunta: {
-    color: colors.danger,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  botonesAdjuntarFotoRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 6,
-  },
-  btnAdjuntarGaleria: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  txtBtnAdjuntarFoto: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  btnAdjuntarCamara: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  txtBtnAdjuntarFotoCamara: {
-    color: '#000',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
 });

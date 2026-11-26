@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
+import { fonts } from '../../../theme/typography';
 
 interface MesaCronometrajeFase1Props {
   evento: any;
@@ -75,7 +76,7 @@ export const MesaCronometrajeFase1: React.FC<MesaCronometrajeFase1Props> = ({
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <MaterialCommunityIcons name="plus" size={14} color="#000" />
+              <MaterialCommunityIcons name="plus" size={14} color={colors.onPrimary} />
               <Text style={styles.txtBtnAgregarReplicaStaffHeader}>+ CRONAR OTRA RÉPLICA</Text>
             </TouchableOpacity>
           </View>
@@ -131,7 +132,7 @@ export const MesaCronometrajeFase1: React.FC<MesaCronometrajeFase1Props> = ({
                         styles.tarjetaOperadorCronoStaff,
                         {
                           borderLeftWidth: 3,
-                          borderLeftColor: tieneAprobada ? '#10B981' : '#D97706',
+                          borderLeftColor: tieneAprobada ? colors.success : colors.warning,
                         },
                       ]}
                     >
@@ -155,7 +156,7 @@ export const MesaCronometrajeFase1: React.FC<MesaCronometrajeFase1Props> = ({
                           <MaterialCommunityIcons
                             name={tieneAprobada ? 'check-circle' : 'clock-alert-outline'}
                             size={11}
-                            color="#fff"
+                            color={colors.text}
                             style={{ marginRight: 3 }}
                           />
                           <Text style={styles.txtBadgeCronoMini}>
@@ -173,7 +174,7 @@ export const MesaCronometrajeFase1: React.FC<MesaCronometrajeFase1Props> = ({
                             activeOpacity={0.7}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
-                            <MaterialCommunityIcons name="plus" size={13} color="#000" />
+                            <MaterialCommunityIcons name="plus" size={13} color={colors.onPrimary} />
                             <Text style={styles.txtBtnAgregarReplicaStaffMini}>CRONAR RÉPLICA</Text>
                           </TouchableOpacity>
                         </View>
@@ -230,7 +231,7 @@ export const MesaCronometrajeFase1: React.FC<MesaCronometrajeFase1Props> = ({
                                         activeOpacity={0.7}
                                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                       >
-                                        <MaterialCommunityIcons name="check" size={16} color="#fff" />
+                                        <MaterialCommunityIcons name="check" size={16} color={colors.text} />
                                       </TouchableOpacity>
                                       <TouchableOpacity
                                         style={[styles.btnAccionCronoRapida, styles.btnRechazarCronoRapido]}
@@ -238,7 +239,7 @@ export const MesaCronometrajeFase1: React.FC<MesaCronometrajeFase1Props> = ({
                                         activeOpacity={0.7}
                                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                       >
-                                        <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                                        <MaterialCommunityIcons name="close" size={16} color={colors.text} />
                                       </TouchableOpacity>
                                       <TouchableOpacity
                                         style={styles.btnEliminarCronoMini}
@@ -281,7 +282,7 @@ export const MesaCronometrajeFase1: React.FC<MesaCronometrajeFase1Props> = ({
               <>
                 {yoHabilitado ? (
                   <View style={styles.bannerCronoHabilitado}>
-                    <MaterialCommunityIcons name="check-decagram" size={24} color="#10B981" />
+                    <MaterialCommunityIcons name="check-decagram" size={24} color={colors.success} />
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={styles.txtBannerCronoHabilitadoTitulo}>HABILITADO PARA DESPLIEGUE</Text>
                       <Text style={styles.txtBannerCronoHabilitadoDesc}>
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
   cronoFaseTitulo: {
     color: colors.text,
     fontSize: 14,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
   },
   cronoFaseSub: {
@@ -392,7 +393,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   badgeFaseCronoActiva: {
-    backgroundColor: 'rgba(214, 158, 46, 0.2)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     paddingHorizontal: 8,
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   txtBtnAgregarReplicaStaffHeader: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -495,17 +496,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badgeVerde: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
   },
   badgeAmarillo: {
-    backgroundColor: '#D97706',
+    backgroundColor: colors.warning,
   },
   badgeRojo: {
     backgroundColor: colors.danger,
   },
   txtBadgeCronoMini: {
-    color: '#fff',
-    fontSize: 9,
+    color: colors.text,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -533,7 +534,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   txtBtnAgregarReplicaStaffMini: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '900',
   },
@@ -562,7 +563,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
     color: colors.text,
     fontSize: 13,
-    fontWeight: '800',
+    fontFamily: fonts.monoBold,
     fontVariant: ['tabular-nums'],
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -578,10 +579,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnAprobarCronoRapido: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
   },
   btnRechazarCronoRapido: {
-    backgroundColor: '#D97706',
+    backgroundColor: colors.warning,
   },
   btnEliminarCronoMini: {
     width: 34,
@@ -600,14 +601,14 @@ const styles = StyleSheet.create({
   bannerCronoHabilitado: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: colors.success,
     borderRadius: 10,
     padding: 12,
   },
   txtBannerCronoHabilitadoTitulo: {
-    color: '#10B981',
+    color: colors.success,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -663,7 +664,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   badgeAprobadoCrono: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -672,7 +673,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
   },
   txtBadgeAprobadoCrono: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '800',
   },

@@ -52,7 +52,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                 onPress={onAbrirModalNuevaMision}
                 activeOpacity={0.8}
               >
-                <MaterialCommunityIcons name="plus" size={14} color="#000" />
+                <MaterialCommunityIcons name="plus" size={14} color={colors.onPrimary} />
                 <Text style={styles.txtBtnNuevaMisionMini}>+ NUEVA MISIÓN</Text>
               </TouchableOpacity>
             ) : (
@@ -75,7 +75,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                   onPress={onAbrirModalNuevaMision}
                   activeOpacity={0.8}
                 >
-                  <MaterialCommunityIcons name="crosshairs-gps" size={16} color="#000" />
+                  <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.onPrimary} />
                   <Text style={styles.txtBtnAsignarPrimeraMision}>ASIGNAR PRIMERA ORDEN DE MISIÓN</Text>
                 </TouchableOpacity>
               )}
@@ -87,7 +87,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                 const colorBando = bandoAsignado?.colorHex || colors.primary;
                 const bordeLateralColor =
                   m.estado === 'COMPLETADA'
-                    ? '#10B981'
+                    ? colors.success
                     : m.estado === 'CANCELADA'
                     ? colors.danger
                     : colorBando;
@@ -149,7 +149,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                       >
                         <Image source={{ uri: m.fotoUrl }} style={styles.imgFotoMisionOrgPreview} resizeMode="cover" />
                         <View style={styles.overlayAmpliarFotoMini}>
-                          <MaterialCommunityIcons name="magnify-plus-outline" size={14} color="#fff" />
+                          <MaterialCommunityIcons name="magnify-plus-outline" size={14} color={colors.text} />
                           <Text style={styles.txtAmpliarFotoMini}>Ver imagen táctica</Text>
                         </View>
                       </TouchableOpacity>
@@ -164,7 +164,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                             onPress={() => onCambiarEstadoMision(m.id, 'COMPLETADA')}
                             activeOpacity={0.8}
                           >
-                            <MaterialCommunityIcons name="check" size={13} color="#fff" />
+                            <MaterialCommunityIcons name="check" size={13} color={colors.text} />
                             <Text style={styles.txtBtnAccionMision}>Marcar Cumplida</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -200,9 +200,9 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
         if (esFase3Debriefing) {
           return (
             <View style={styles.cardMisionLiderVacia}>
-              <MaterialCommunityIcons name="flag-checkered" size={24} color="#10B981" />
+              <MaterialCommunityIcons name="flag-checkered" size={24} color={colors.success} />
               <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={[styles.txtMisionLiderVaciaTitulo, { color: '#10B981' }]}>
+                <Text style={[styles.txtMisionLiderVaciaTitulo, { color: colors.success }]}>
                   FASE 3: CONCLUSIÓN Y DEBRIEFING
                 </Text>
                 <Text style={styles.txtMisionLiderVaciaDesc}>
@@ -237,7 +237,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                 <View style={styles.headerMisionLiderActiva}>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      <MaterialCommunityIcons name="star-shooting" size={16} color="#F59E0B" />
+                      <MaterialCommunityIcons name="star-shooting" size={16} color={colors.warning} />
                       <Text style={styles.txtHeaderMisionLiderEtiqueta}>ORDEN CLASIFICADA PARA EL LÍDER</Text>
                     </View>
                     <Text style={styles.txtMisionLiderTitulo}>{m.titulo}</Text>
@@ -266,7 +266,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                     >
                       <Image source={{ uri: m.fotoUrl }} style={styles.imgFotoMisionLider} resizeMode="cover" />
                       <View style={styles.overlayAmpliarFoto}>
-                        <MaterialCommunityIcons name="magnify-plus-outline" size={16} color="#fff" style={{ marginRight: 4 }} />
+                        <MaterialCommunityIcons name="magnify-plus-outline" size={16} color={colors.text} style={{ marginRight: 4 }} />
                         <Text style={styles.txtAmpliarFoto}>Tocar para ampliar mapa de misión</Text>
                       </View>
                     </TouchableOpacity>
@@ -288,7 +288,7 @@ export const MisionesCombateFase2: React.FC<MisionesCombateFase2Props> = ({
                   onPress={() => onCambiarEstadoMision(m.id, 'COMPLETADA')}
                   activeOpacity={0.8}
                 >
-                  <MaterialCommunityIcons name="check-decagram" size={18} color="#fff" style={{ marginRight: 6 }} />
+                  <MaterialCommunityIcons name="check-decagram" size={18} color={colors.text} style={{ marginRight: 6 }} />
                   <Text style={styles.txtBtnReportarCumplimientoLider}>REPORTAR OBJETIVO CUMPLIDO</Text>
                 </TouchableOpacity>
               </View>
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(224, 109, 40, 0.4)',
+    borderColor: colors.primaryBorder,
     padding: 14,
     marginBottom: 12,
   },
@@ -397,18 +397,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   txtBtnNuevaMisionMini: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '900',
   },
   badgeFaseDebriefingCerrada: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
   },
   txtBadgeFaseDebriefingCerrada: {
-    color: '#10B981',
+    color: colors.success,
     fontSize: 10,
     fontWeight: '900',
   },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   txtBtnAsignarPrimeraMision: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
   },
@@ -465,14 +465,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   badgeTipoObjetivo: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.disabled,
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 3,
   },
   txtBadgeTipoObjetivo: {
     color: colors.textSecondary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
   },
   txtTituloMisionOrg: {
@@ -487,21 +487,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badgeMisionActiva: {
-    backgroundColor: 'rgba(214, 158, 46, 0.2)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
   },
   badgeMisionCumplida: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: colors.success,
   },
   badgeMisionCancelada: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.disabled,
   },
   txtBadgeEstadoMision: {
-    color: '#fff',
-    fontSize: 9,
+    color: colors.text,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   txtAmpliarFotoMini: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -561,10 +561,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   btnMarcarCumplida: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
   },
   btnCancelarMision: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
     borderColor: colors.danger,
   },
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   txtBtnAccionMision: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.cardBorder,
     borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
+    borderLeftColor: colors.warning,
     padding: 14,
   },
   headerMisionLiderActiva: {
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   },
   txtHeaderMisionLiderEtiqueta: {
     color: colors.warning,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 6,
   },
   txtAmpliarFoto: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -692,12 +692,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10B981',
+    backgroundColor: colors.success,
     borderRadius: 8,
     paddingVertical: 10,
   },
   txtBtnReportarCumplimientoLider: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
   },
   txtHeaderMisionOpEtiqueta: {
     color: colors.primary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
