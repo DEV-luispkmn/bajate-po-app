@@ -83,7 +83,7 @@ export const ModalFichaCancha: React.FC<ModalFichaCanchaProps> = ({
                 </View>
               ) : (
                 <View style={[styles.detalleBadge, styles.badgeEscuadra]}>
-                  <MaterialCommunityIcons name="shield-account" size={12} color="#10B981" style={{ marginRight: 4 }} />
+                  <MaterialCommunityIcons name="shield-account" size={12} color={colors.success} style={{ marginRight: 4 }} />
                   <Text style={[styles.textoBadgeAdmin, styles.textoEscuadra]}>
                     {cancha.equipoAdminNombre ? `EQUIPO: ${cancha.equipoAdminNombre}` : 'CAMPO DE EQUIPO'}
                   </Text>
@@ -171,7 +171,7 @@ export const ModalFichaCancha: React.FC<ModalFichaCanchaProps> = ({
               activeOpacity={0.85}
               onPress={() => onAbrirGoogleMaps(cancha)}
             >
-              <MaterialCommunityIcons name="google-maps" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <MaterialCommunityIcons name="google-maps" size={20} color={colors.text} style={{ marginRight: 8 }} />
               <Text style={styles.txtBtnAbrirMapsGrande}>ABRIR EN GOOGLE MAPS</Text>
             </TouchableOpacity>
 
@@ -186,7 +186,7 @@ export const ModalFichaCancha: React.FC<ModalFichaCanchaProps> = ({
                     onAbrirFormEditar(cancha);
                   }}
                 >
-                  <MaterialCommunityIcons name="pencil" size={16} color="#000" style={{ marginRight: 6 }} />
+                  <MaterialCommunityIcons name="pencil" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
                   <Text style={styles.txtBtnDetalleEditar}>EDITAR FICHA (COMANDANCIA)</Text>
                 </TouchableOpacity>
               ) : (
@@ -221,7 +221,7 @@ export const ModalFichaCancha: React.FC<ModalFichaCanchaProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: 16,
   },
@@ -271,19 +271,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   badgeEnRevision: {
-    backgroundColor: 'rgba(214, 158, 46, 0.2)',
+    backgroundColor: colors.warningSoft,
     borderColor: colors.warning,
     flexDirection: 'row',
     alignItems: 'center',
   },
   textoBadgeEnRevision: {
     color: colors.warning,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
   badgeActiva: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     borderColor: colors.success,
     flexDirection: 'row',
     alignItems: 'center',
@@ -294,13 +294,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   badgeAbierta: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
   },
   textoBadgeAdmin: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -308,13 +308,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   badgeEscuadra: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: '#10B981',
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
     flexDirection: 'row',
     alignItems: 'center',
   },
   textoEscuadra: {
-    color: '#10B981',
+    color: colors.success,
   },
   detalleSeccionBox: {
     backgroundColor: colors.inputBg,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   txtBtnAbrirMapsGrande: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txtBtnDetalleEditar: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,

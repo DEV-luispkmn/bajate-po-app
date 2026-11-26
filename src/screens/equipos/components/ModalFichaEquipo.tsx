@@ -75,7 +75,7 @@ export const ModalFichaEquipo: React.FC<ModalFichaEquipoProps> = ({
               <View style={{ marginTop: 8 }}>
                 {equipo.postulacionesAbiertas ? (
                   <View style={[styles.badgePostulacionesAbiertas, { flexDirection: 'row', alignItems: 'center' }]}>
-                    <MaterialCommunityIcons name="circle" size={8} color="#10B981" style={{ marginRight: 5 }} />
+                    <MaterialCommunityIcons name="circle" size={8} color={colors.success} style={{ marginRight: 5 }} />
                     <Text style={styles.txtPostulacionesAbiertas}>POSTULACIONES ABIERTAS</Text>
                   </View>
                 ) : (
@@ -109,7 +109,7 @@ export const ModalFichaEquipo: React.FC<ModalFichaEquipoProps> = ({
                     </Text>
                     {m.esTL ? (
                       <View style={styles.badgeTlMini}>
-                        <MaterialCommunityIcons name="star" size={10} color="#F59E0B" style={{ marginRight: 2 }} />
+                        <MaterialCommunityIcons name="star" size={10} color={colors.warning} style={{ marginRight: 2 }} />
                         <Text style={styles.txtTlMini}>TL</Text>
                       </View>
                     ) : m.esFundador ? (
@@ -167,7 +167,7 @@ export const ModalFichaEquipo: React.FC<ModalFichaEquipoProps> = ({
                   }}
                   activeOpacity={0.85}
                 >
-                  <MaterialCommunityIcons name="file-document-edit-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                  <MaterialCommunityIcons name="file-document-edit-outline" size={18} color={colors.text} style={{ marginRight: 6 }} />
                   <Text style={styles.txtBtnAlistarmeModal}>POSTULAR A ESTE EQUIPO</Text>
                 </TouchableOpacity>
               ) : (
@@ -195,7 +195,7 @@ export const ModalFichaEquipo: React.FC<ModalFichaEquipoProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: 16,
   },
@@ -254,15 +254,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   badgePostulacionesAbiertas: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: colors.success,
   },
   txtPostulacionesAbiertas: {
-    color: '#10B981',
+    color: colors.success,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -321,16 +321,16 @@ const styles = StyleSheet.create({
   badgeTlMini: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: colors.warningSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: colors.warning,
   },
   txtTlMini: {
-    color: '#F59E0B',
-    fontSize: 9,
+    color: colors.warning,
+    fontSize: 11,
     fontWeight: '900',
   },
   badgeFundadorMini: {
@@ -343,15 +343,15 @@ const styles = StyleSheet.create({
   },
   txtFundadorMini: {
     color: colors.primary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
   },
   bannerPostulacionesCerradasModal: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: colors.warningBorder,
     borderRadius: 8,
     padding: 10,
     marginBottom: 12,
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: colors.successSoft,
     borderColor: colors.success,
     borderWidth: 1,
     borderRadius: 8,
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txtBtnAlistarmeModal: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,

@@ -23,6 +23,7 @@ import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
@@ -47,6 +48,7 @@ import {
   cancelarPostulacionApi,
 } from '../../api/equipos.service';
 import { ModalNotificaciones } from '../../components/ModalNotificaciones';
+import { EstadoErrorRed } from '../../components/EstadoErrorRed';
 import { listarNotificacionesApi } from '../../api/notificaciones.service';
 import { ModalFichaEquipo } from './components/ModalFichaEquipo';
 import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
@@ -70,6 +72,7 @@ export const EquiposScreen = () => {
   const [miEquipo, setMiEquipo] = useState<Equipo | null>(null);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   // Mi Región del jugador
   const miRegion = jugador?.region || 'Región Metropolitana';
@@ -240,6 +243,7 @@ export const EquiposScreen = () => {
 
   const cargarDatos = async () => {
     try {
+      setErrorCarga(null);
       const regionParam = modoFiltro === 'MI_REGION' ? miRegion : regionFiltro;
 
       const [resEquipos, resMiEquipo, resMisPostulaciones, resNotif] = await Promise.all([
@@ -274,6 +278,9 @@ export const EquiposScreen = () => {
       }
     } catch (error: any) {
       console.warn('Error al cargar equipos:', error);
+      setErrorCarga(
+        error?.message || 'No se pudieron sincronizar los equipos. Revisa tu conexión e intenta nuevamente.'
+      );
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -854,7 +861,7 @@ export const EquiposScreen = () => {
               <View style={styles.badgePostulacionesRow}>
                 {item.postulacionesAbiertas ? (
                   <View style={[styles.badgePostulacionesAbiertas, { flexDirection: 'row', alignItems: 'center' }]}>
-                    <MaterialCommunityIcons name="circle" size={8} color="#10B981" style={{ marginRight: 5 }} />
+                    <MaterialCommunityIcons name="circle" size={8} color={colors.success} style={{ marginRight: 5 }} />
                     <Text style={styles.txtPostulacionesAbiertas}>POSTULACIONES ABIERTAS</Text>
                   </View>
                 ) : (
@@ -916,6 +923,9 @@ export const EquiposScreen = () => {
             style={styles.btnCampanaHeader}
             onPress={() => setModalNotificacionesVisible(true)}
             activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={conteoNoLeidas > 0 ? `Notificaciones, ${conteoNoLeidas} sin leer` : 'Abrir notificaciones'}
           >
             <MaterialCommunityIcons
               name={conteoNoLeidas > 0 ? 'bell-badge' : 'bell-outline'}
@@ -942,11 +952,14 @@ export const EquiposScreen = () => {
           style={[styles.segmentBtn, tabActual === 'EXPLORAR' && styles.segmentBtnActivo]}
           onPress={() => setTabActual('EXPLORAR')}
           activeOpacity={0.85}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tabActual === 'EXPLORAR' }}
+          accessibilityLabel="Explorar equipos"
         >
           <MaterialCommunityIcons
             name="compass-outline"
             size={16}
-            color={tabActual === 'EXPLORAR' ? '#fff' : colors.textMuted}
+            color={tabActual === 'EXPLORAR' ? colors.onPrimary : colors.textMuted}
             style={{ marginRight: 6 }}
           />
           <Text style={[styles.segmentTxt, tabActual === 'EXPLORAR' && styles.segmentTxtActivo]}>
@@ -958,11 +971,14 @@ export const EquiposScreen = () => {
           style={[styles.segmentBtn, tabActual === 'MI_EQUIPO' && styles.segmentBtnActivo]}
           onPress={() => setTabActual('MI_EQUIPO')}
           activeOpacity={0.85}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tabActual === 'MI_EQUIPO' }}
+          accessibilityLabel="Mi equipo"
         >
           <MaterialCommunityIcons
             name="shield-star"
             size={16}
-            color={tabActual === 'MI_EQUIPO' ? '#fff' : colors.textMuted}
+            color={tabActual === 'MI_EQUIPO' ? colors.onPrimary : colors.textMuted}
             style={{ marginRight: 6 }}
           />
           <Text style={[styles.segmentTxt, tabActual === 'MI_EQUIPO' && styles.segmentTxtActivo]}>
@@ -972,7 +988,7 @@ export const EquiposScreen = () => {
             <MaterialCommunityIcons
               name="check-circle"
               size={12}
-              color={tabActual === 'MI_EQUIPO' ? '#fff' : colors.success}
+              color={tabActual === 'MI_EQUIPO' ? colors.onPrimary : colors.success}
               style={{ marginLeft: 4 }}
             />
           )}
@@ -994,7 +1010,7 @@ export const EquiposScreen = () => {
                 <MaterialCommunityIcons
                   name="crosshairs-gps"
                   size={14}
-                  color={modoFiltro === 'MI_REGION' ? '#fff' : colors.textSecondary}
+                  color={modoFiltro === 'MI_REGION' ? colors.text : colors.textSecondary}
                   style={{ marginRight: 6 }}
                 />
                 <Text
@@ -1017,7 +1033,7 @@ export const EquiposScreen = () => {
                 <MaterialCommunityIcons
                   name="map-search-outline"
                   size={14}
-                  color={modoFiltro === 'PERSONALIZADA' ? '#fff' : colors.textSecondary}
+                  color={modoFiltro === 'PERSONALIZADA' ? colors.text : colors.textSecondary}
                   style={{ marginRight: 6 }}
                 />
                 <Text
@@ -1034,7 +1050,7 @@ export const EquiposScreen = () => {
                 <MaterialCommunityIcons
                   name="menu-down"
                   size={16}
-                  color={modoFiltro === 'PERSONALIZADA' ? '#fff' : colors.textSecondary}
+                  color={modoFiltro === 'PERSONALIZADA' ? colors.text : colors.textSecondary}
                   style={{ marginLeft: 2 }}
                 />
               </TouchableOpacity>
@@ -1101,8 +1117,11 @@ export const EquiposScreen = () => {
               style={styles.btnAccionMiniFundar}
               onPress={() => setModalCrearVisible(true)}
               activeOpacity={0.8}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel="Fundar un equipo"
             >
-              <MaterialCommunityIcons name="plus-circle" size={15} color="#fff" style={{ marginRight: 4 }} />
+              <MaterialCommunityIcons name="plus-circle" size={15} color={colors.onPrimary} style={{ marginRight: 4 }} />
               <Text style={styles.txtBtnAccionMiniFundar}>FUNDAR EQUIPO</Text>
             </TouchableOpacity>
 
@@ -1110,6 +1129,9 @@ export const EquiposScreen = () => {
               style={styles.btnAccionMiniCodigo}
               onPress={() => setModalCodigoVisible(true)}
               activeOpacity={0.8}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              accessibilityRole="button"
+              accessibilityLabel="Unirse a un equipo con código"
             >
               <MaterialCommunityIcons name="key" size={14} color={colors.primary} style={{ marginRight: 4 }} />
               <Text style={styles.txtBtnAccionMiniCodigo}>INGRESAR CÓDIGO</Text>
@@ -1160,54 +1182,63 @@ export const EquiposScreen = () => {
               <Text style={styles.txtCargando}>Explorando equipos tácticos...</Text>
             </View>
           ) : (
-            <FlatList
-              data={equipos}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderItemEquipo}
-              contentContainerStyle={styles.listContainer}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              refreshControl={
-                <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor={colors.primary} />
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <MaterialCommunityIcons name="shield-outline" size={48} color={colors.textMuted} style={{ marginBottom: 10 }} />
-                  <Text style={styles.emptyTitulo}>No se encontraron equipos</Text>
-                  <Text style={styles.emptySubtitulo}>
-                    {modoFiltro === 'MI_REGION'
-                      ? `No hay equipos tácticos registrados aún en ${miRegion}. Puedes buscar en otras regiones de Chile o fundar el primero de tu zona.`
-                      : `No hay equipos registrados en ${regionFiltro}. Prueba buscando en otra región o funda un nuevo equipo.`}
-                  </Text>
-                  {modoFiltro === 'MI_REGION' ? (
-                    <TouchableOpacity
-                      style={[styles.btnFundarPrimerEquipo, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary, marginBottom: 8 }]}
-                      onPress={() => setModalRegionVisible(true)}
-                      activeOpacity={0.85}
-                    >
-                      <MaterialCommunityIcons name="map-search-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-                      <Text style={[styles.txtBtnFundarPrimerEquipo, { color: colors.primary }]}>BUSCAR EN OTRAS REGIONES</Text>
-                    </TouchableOpacity>
+            <>
+              {errorCarga && equipos.length > 0 && (
+                <EstadoErrorRed mensaje={errorCarga} onReintentar={onRefresh} compacto />
+              )}
+              <FlatList
+                data={equipos}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={renderItemEquipo}
+                contentContainerStyle={styles.listContainer}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                refreshControl={
+                  <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor={colors.primary} />
+                }
+                ListEmptyComponent={
+                  errorCarga ? (
+                    <EstadoErrorRed mensaje={errorCarga} onReintentar={onRefresh} />
                   ) : (
-                    <TouchableOpacity
-                      style={[styles.btnFundarPrimerEquipo, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary, marginBottom: 8 }]}
-                      onPress={seleccionarModoMiRegion}
-                      activeOpacity={0.85}
-                    >
-                      <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.primary} style={{ marginRight: 6 }} />
-                      <Text style={[styles.txtBtnFundarPrimerEquipo, { color: colors.primary }]}>VOLVER A MI REGIÓN</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.btnFundarPrimerEquipo}
-                    onPress={() => setModalCrearVisible(true)}
-                  >
-                    <MaterialCommunityIcons name="plus-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.txtBtnFundarPrimerEquipo}>FUNDAR PRIMER EQUIPO</Text>
-                  </TouchableOpacity>
-                </View>
-              }
-            />
+                    <View style={styles.emptyContainer}>
+                      <MaterialCommunityIcons name="shield-outline" size={48} color={colors.textMuted} style={{ marginBottom: 10 }} />
+                      <Text style={styles.emptyTitulo}>No se encontraron equipos</Text>
+                      <Text style={styles.emptySubtitulo}>
+                        {modoFiltro === 'MI_REGION'
+                          ? `No hay equipos tácticos registrados aún en ${miRegion}. Puedes buscar en otras regiones de Chile o fundar el primero de tu zona.`
+                          : `No hay equipos registrados en ${regionFiltro}. Prueba buscando en otra región o funda un nuevo equipo.`}
+                      </Text>
+                      {modoFiltro === 'MI_REGION' ? (
+                        <TouchableOpacity
+                          style={[styles.btnFundarPrimerEquipo, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary, marginBottom: 8 }]}
+                          onPress={() => setModalRegionVisible(true)}
+                          activeOpacity={0.85}
+                        >
+                          <MaterialCommunityIcons name="map-search-outline" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                          <Text style={[styles.txtBtnFundarPrimerEquipo, { color: colors.primary }]}>BUSCAR EN OTRAS REGIONES</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.btnFundarPrimerEquipo, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.primary, marginBottom: 8 }]}
+                          onPress={seleccionarModoMiRegion}
+                          activeOpacity={0.85}
+                        >
+                          <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                          <Text style={[styles.txtBtnFundarPrimerEquipo, { color: colors.primary }]}>VOLVER A MI REGIÓN</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={styles.btnFundarPrimerEquipo}
+                        onPress={() => setModalCrearVisible(true)}
+                      >
+                        <MaterialCommunityIcons name="plus-circle" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
+                        <Text style={styles.txtBtnFundarPrimerEquipo}>FUNDAR PRIMER EQUIPO</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )
+                }
+              />
+            </>
           )}
         </View>
       ) : (
@@ -1250,7 +1281,7 @@ export const EquiposScreen = () => {
                 {/* Badge de Cargo del Jugador en la Escuadra */}
                 {esTlDeMiEquipo ? (
                   <View style={styles.badgeComandanteOficial}>
-                    <MaterialCommunityIcons name="star-circle" size={14} color="#F59E0B" style={{ marginRight: 4 }} />
+                    <MaterialCommunityIcons name="star-circle" size={14} color={colors.warning} style={{ marginRight: 4 }} />
                     <Text style={styles.txtBadgeComandanteOficial}>ERES EL TEAM LEADER (TL) OFICIAL</Text>
                   </View>
                 ) : esFundadorDeMiEquipo ? (
@@ -1307,13 +1338,13 @@ export const EquiposScreen = () => {
                       activeOpacity={0.85}
                     >
                       {cambiandoPostulaciones ? (
-                        <ActivityIndicator color="#fff" size="small" />
+                        <ActivityIndicator color={colors.text} size="small" />
                       ) : (
                         <>
                           <MaterialCommunityIcons
                             name={miEquipo.postulacionesAbiertas ? 'lock' : 'lock-open-variant'}
                             size={14}
-                            color="#fff"
+                            color={colors.text}
                             style={{ marginRight: 4 }}
                           />
                           <Text style={styles.txtBtnTogglePostulaciones}>
@@ -1330,7 +1361,7 @@ export const EquiposScreen = () => {
                     onPress={handleAbrirModalEditarEquipo}
                     activeOpacity={0.85}
                   >
-                    <MaterialCommunityIcons name="circle-edit-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="circle-edit-outline" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnModificarEquipoTl}>EDITAR INFORMACIÓN DEL EQUIPO</Text>
                   </TouchableOpacity>
 
@@ -1390,7 +1421,7 @@ export const EquiposScreen = () => {
                                 onPress={() => handleAbrirWhatsApp(post.contacto, post.jugadorAlias)}
                                 activeOpacity={0.8}
                               >
-                                <MaterialCommunityIcons name="chat" size={13} color="#fff" style={{ marginRight: 4 }} />
+                                <MaterialCommunityIcons name="chat" size={13} color={colors.text} style={{ marginRight: 4 }} />
                                 <Text style={styles.txtBtnChatWhatsapp}>WHATSAPP</Text>
                               </TouchableOpacity>
                             </View>
@@ -1423,10 +1454,10 @@ export const EquiposScreen = () => {
                               activeOpacity={0.8}
                             >
                               {respondiendoPostulacionId === post.id ? (
-                                <ActivityIndicator size="small" color="#fff" />
+                                <ActivityIndicator size="small" color={colors.text} />
                               ) : (
                                 <>
-                                  <MaterialCommunityIcons name="check-bold" size={14} color="#fff" style={{ marginRight: 4 }} />
+                                  <MaterialCommunityIcons name="check-bold" size={14} color={colors.text} style={{ marginRight: 4 }} />
                                   <Text style={styles.txtBtnAceptarPostulante}>ACEPTAR AL EQUIPO</Text>
                                 </>
                               )}
@@ -1454,7 +1485,7 @@ export const EquiposScreen = () => {
                     onPress={handleCompartirCodigoEquipo}
                     activeOpacity={0.8}
                   >
-                    <MaterialCommunityIcons name="share-variant" size={15} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="share-variant" size={15} color={colors.onPrimary} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnCompartirCodigo}>COMPARTIR CÓDIGO CON CAMARADAS</Text>
                   </TouchableOpacity>
                 </View>
@@ -1498,7 +1529,7 @@ export const EquiposScreen = () => {
                           )}
                           {m.esTL ? (
                             <View style={styles.badgeTlMini}>
-                              <MaterialCommunityIcons name="star" size={10} color="#F59E0B" style={{ marginRight: 2 }} />
+                              <MaterialCommunityIcons name="star" size={10} color={colors.warning} style={{ marginRight: 2 }} />
                               <Text style={styles.txtTlMini}>TL</Text>
                             </View>
                           ) : m.esFundador ? (
@@ -1518,8 +1549,11 @@ export const EquiposScreen = () => {
                           style={styles.btnDesignarTlMini}
                           onPress={() => handleNombrarTl(m)}
                           activeOpacity={0.8}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Nombrar Team Leader a ${m.alias}`}
                         >
-                          <MaterialCommunityIcons name="star-outline" size={11} color="#F59E0B" style={{ marginRight: 2 }} />
+                          <MaterialCommunityIcons name="star-outline" size={11} color={colors.warning} style={{ marginRight: 2 }} />
                           <Text style={styles.txtDesignarTlMini}>NOMBRAR TL</Text>
                         </TouchableOpacity>
                       )}
@@ -1536,7 +1570,7 @@ export const EquiposScreen = () => {
                     onPress={handleDesintegrarEquipo}
                     activeOpacity={0.8}
                   >
-                    <MaterialCommunityIcons name="bomb" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="bomb" size={18} color={colors.danger} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnDesintegrarEquipo}>DESINTEGRAR EQUIPO</Text>
                   </TouchableOpacity>
                   {(miEquipo.totalMiembros || 0) > 1 && (
@@ -1574,7 +1608,7 @@ export const EquiposScreen = () => {
                   onPress={() => setModalCrearVisible(true)}
                   activeOpacity={0.85}
                 >
-                  <MaterialCommunityIcons name="shield-plus" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <MaterialCommunityIcons name="shield-plus" size={18} color={colors.onPrimary} style={{ marginRight: 8 }} />
                   <Text style={styles.txtBtnFundarDesdeMiEquipo}>FUNDAR NUEVO EQUIPO</Text>
                 </TouchableOpacity>
 
@@ -1711,7 +1745,7 @@ export const EquiposScreen = () => {
                     style={styles.btnElegirLogo}
                     onPress={handleSeleccionarLogoGaleria}
                   >
-                    <MaterialCommunityIcons name="camera" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="camera" size={16} color={colors.text} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnElegirLogo}>
                       {crearLogoUrl ? 'CAMBIAR LOGO' : 'SUBIR DESDE MI TELÉFONO'}
                     </Text>
@@ -1761,10 +1795,10 @@ export const EquiposScreen = () => {
                 disabled={guardandoEquipo}
               >
                 {guardandoEquipo ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="shield-check" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="shield-check" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnConfirmarCrear}>FUNDAR EQUIPO</Text>
                   </>
                 )}
@@ -1848,10 +1882,10 @@ export const EquiposScreen = () => {
                 disabled={procesandoCodigo}
               >
                 {procesandoCodigo ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="login" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="login" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnConfirmarCodigo}>UNIRME</Text>
                   </>
                 )}
@@ -2069,7 +2103,7 @@ export const EquiposScreen = () => {
                     style={styles.btnElegirLogo}
                     onPress={handleSeleccionarLogoEditarGaleria}
                   >
-                    <MaterialCommunityIcons name="camera" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="camera" size={16} color={colors.text} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnElegirLogo}>
                       {editLogoUrl ? 'CAMBIAR LOGO' : 'SUBIR DESDE MI TELÉFONO'}
                     </Text>
@@ -2119,10 +2153,10 @@ export const EquiposScreen = () => {
                 disabled={guardandoEdicionEquipo}
               >
                 {guardandoEdicionEquipo ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.text} size="small" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="check-bold" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="check-bold" size={16} color={colors.text} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnConfirmarCrear}>GUARDAR CAMBIOS</Text>
                   </>
                 )}
@@ -2276,10 +2310,10 @@ export const EquiposScreen = () => {
                 disabled={enviandoPostulacion}
               >
                 {enviandoPostulacion ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.text} size="small" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="send" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <MaterialCommunityIcons name="send" size={16} color={colors.text} style={{ marginRight: 6 }} />
                     <Text style={styles.txtBtnConfirmarCrear}>ENVIAR POSTULACIÓN</Text>
                   </>
                 )}
@@ -2394,10 +2428,10 @@ export const EquiposScreen = () => {
                 disabled={enviandoRechazo}
               >
                 {enviandoRechazo ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.text} size="small" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="close-circle-outline" size={16} color="#fff" style={{ marginRight: 4 }} />
+                    <MaterialCommunityIcons name="close-circle-outline" size={16} color={colors.text} style={{ marginRight: 4 }} />
                     <Text style={styles.txtBtnConfirmarRechazoModal}>DECLINAR SOLICITUD</Text>
                   </>
                 )}
@@ -2459,7 +2493,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 54,
+    paddingTop: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
@@ -2471,9 +2505,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   btnCampanaHeader: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -2486,9 +2520,9 @@ const styles = StyleSheet.create({
     top: -3,
     right: -3,
     backgroundColor: colors.primary,
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -2496,8 +2530,8 @@ const styles = StyleSheet.create({
     borderColor: colors.background,
   },
   txtBadgeCampanaContador: {
-    color: '#fff',
-    fontSize: 9,
+    color: colors.onPrimary,
+    fontSize: 10,
     fontWeight: '900',
   },
   headerTitleRow: {
@@ -2508,7 +2542,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
   },
   headerSubtitle: {
@@ -2531,6 +2565,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
     paddingVertical: 10,
     borderRadius: 8,
   },
@@ -2544,7 +2579,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   segmentTxtActivo: {
-    color: '#fff',
+    color: colors.onPrimary,
+    fontWeight: '900',
   },
   filtrosBarChips: {
     paddingVertical: 10,
@@ -2585,7 +2621,7 @@ const styles = StyleSheet.create({
   },
   filtroChipActivo: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
   },
   filtroChipTxt: {
     color: colors.textSecondary,
@@ -2600,7 +2636,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderBottomWidth: 1,
@@ -2673,10 +2709,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primary,
     borderRadius: 8,
+    minHeight: 40,
     paddingVertical: 8,
   },
   txtBtnAccionMiniFundar: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -2686,8 +2723,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
+    minHeight: 40,
     paddingVertical: 8,
     borderWidth: 1,
     borderColor: colors.primary,
@@ -2747,7 +2785,7 @@ const styles = StyleSheet.create({
   equipoNombre: {
     color: colors.text,
     fontSize: 15,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     flex: 1,
   },
   badgeMiEquipoMini: {
@@ -2761,7 +2799,7 @@ const styles = StyleSheet.create({
   },
   txtMiEquipoMini: {
     color: colors.success,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
   },
   equipoLema: {
@@ -2790,7 +2828,7 @@ const styles = StyleSheet.create({
   badgePostulacionPendienteCardList: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     borderRadius: 6,
@@ -2805,9 +2843,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   bannerMisPostulacionesContainer: {
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderColor: colors.warningBorder,
     borderRadius: 10,
     marginHorizontal: 16,
     marginBottom: 12,
@@ -2848,9 +2886,9 @@ const styles = StyleSheet.create({
   btnCancelarMiPostulacionMini: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.dangerBorder,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -2872,12 +2910,12 @@ const styles = StyleSheet.create({
   },
   txtPostulacionesAbiertas: {
     color: colors.success,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   badgePostulacionesCerradas: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
     borderColor: colors.danger,
     borderRadius: 4,
@@ -2887,7 +2925,7 @@ const styles = StyleSheet.create({
   },
   txtPostulacionesCerradas: {
     color: colors.danger,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -2964,7 +3002,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   txtBtnFundarPrimerEquipo: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3031,7 +3069,7 @@ const styles = StyleSheet.create({
   badgeComandanteOficial: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     borderRadius: 6,
@@ -3048,7 +3086,7 @@ const styles = StyleSheet.create({
   badgeFundadorOficial: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 6,
@@ -3136,7 +3174,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   txtBtnTogglePostulaciones: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3152,7 +3190,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   txtBtnModificarEquipoTl: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3187,7 +3225,7 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
   },
   badgeConteoPostulacionesActivo: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: colors.warningSoft,
     borderColor: colors.warning,
   },
   txtBadgeConteoPostulaciones: {
@@ -3272,7 +3310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txtBtnChatWhatsapp: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3285,7 +3323,7 @@ const styles = StyleSheet.create({
   },
   txtPostulanteMensajeLabel: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     marginBottom: 2,
   },
@@ -3302,7 +3340,7 @@ const styles = StyleSheet.create({
   },
   btnRechazarPostulante: {
     flex: 1,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderRadius: 6,
     minHeight: 36,
     paddingVertical: 8,
@@ -3329,7 +3367,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   txtBtnAceptarPostulante: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3342,7 +3380,7 @@ const styles = StyleSheet.create({
   badgePostulacionPendienteCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
@@ -3375,7 +3413,7 @@ const styles = StyleSheet.create({
   infoPostulacionBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
@@ -3395,7 +3433,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 14,
     borderWidth: 1,
-    borderColor: 'rgba(224, 109, 40, 0.3)',
+    borderColor: colors.primaryBorder,
   },
   codigoReclutaLabel: {
     color: colors.textMuted,
@@ -3406,7 +3444,8 @@ const styles = StyleSheet.create({
   codigoReclutaValor: {
     color: colors.primary,
     fontSize: 24,
-    fontWeight: '900',
+    fontFamily: fonts.monoBold,
+    fontVariant: ['tabular-nums'],
     letterSpacing: 4,
     marginVertical: 4,
   },
@@ -3425,7 +3464,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   txtBtnCompartirCodigo: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3504,28 +3543,28 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   txtTuMini: {
-    color: '#fff',
-    fontSize: 9,
+    color: colors.onPrimary,
+    fontSize: 11,
     fontWeight: '900',
   },
   badgeTlMini: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
     marginLeft: 6,
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: colors.warning,
   },
   txtTlMini: {
     color: colors.warning,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
   },
   badgeFundadorMini: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 1,
@@ -3533,7 +3572,7 @@ const styles = StyleSheet.create({
   },
   txtFundadorMini: {
     color: colors.primary,
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: '800',
   },
   operadorSub: {
@@ -3544,7 +3583,7 @@ const styles = StyleSheet.create({
   btnDesignarTlMini: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     borderRadius: 6,
@@ -3554,7 +3593,7 @@ const styles = StyleSheet.create({
   },
   txtDesignarTlMini: {
     color: colors.warning,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
   },
   contenedorAccionSalida: {
@@ -3593,7 +3632,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     marginTop: 20,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    backgroundColor: colors.dangerSoft,
   },
   txtBtnSalirEquipo: {
     color: colors.danger,
@@ -3649,7 +3688,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   txtBtnFundarDesdeMiEquipo: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3658,7 +3697,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: colors.primary,
     borderRadius: 8,
@@ -3686,7 +3725,7 @@ const styles = StyleSheet.create({
   // Modales
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -3784,7 +3823,7 @@ const styles = StyleSheet.create({
   bannerPostulacionesCerradasModal: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     borderRadius: 8,
@@ -3825,7 +3864,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   txtBtnAlistarmeModal: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -3945,7 +3984,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   txtBtnElegirLogo: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -3979,7 +4018,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   txtBtnConfirmarCrear: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -4017,7 +4056,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   txtBtnConfirmarCodigo: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -4049,7 +4088,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardBorder,
   },
   itemRegionActivo: {
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 6,
   },
   txtRegion: {
@@ -4137,7 +4176,7 @@ const styles = StyleSheet.create({
   },
   chipMotivoActivo: {
     borderColor: colors.danger,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: colors.dangerSoft,
   },
   txtChipMotivo: {
     color: colors.textSecondary,
@@ -4180,7 +4219,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   txtBtnConfirmarRechazoModal: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -4189,8 +4228,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerBorder,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,

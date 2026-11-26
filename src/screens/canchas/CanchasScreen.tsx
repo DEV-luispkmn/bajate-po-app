@@ -29,16 +29,21 @@ import { useAuth } from '../../context/AuthContext';
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ModalConfirmacionTactico } from '../../components/ModalConfirmacionTactico';
+import { EstadoErrorRed } from '../../components/EstadoErrorRed';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ModalFichaCancha } from './components/ModalFichaCancha';
 
 export const CanchasScreen = () => {
+  const insets = useSafeAreaInsets();
   const { jugador } = useAuth();
 
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   // Modal para Ver Ficha Detallada de la Cancha
   const [canchaDetalleModal, setCanchaDetalleModal] = useState<Cancha | null>(null);
@@ -95,6 +100,7 @@ export const CanchasScreen = () => {
 
   const cargarCanchas = async () => {
     try {
+      setErrorCarga(null);
       let data: Cancha[] = [];
       if (modoFiltro === 'MI_REGION') {
         data = await listarCanchasApi(miRegion, jugador?.id);
@@ -105,13 +111,10 @@ export const CanchasScreen = () => {
       }
       setCanchas(data);
     } catch (error: any) {
-      setAvisoTactico({
-        visible: true,
-        titulo: 'ERROR DE SINCRONIZACIÓN',
-        mensaje: error.message || 'No se pudieron sincronizar las canchas.',
-        tipo: 'peligro',
-        icono: 'radar',
-      });
+      setErrorCarga(
+        error?.message ||
+          'No se pudieron sincronizar los campos de juego. Revisa tu señal e intenta nuevamente.'
+      );
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -562,15 +565,21 @@ export const CanchasScreen = () => {
   return (
     <View style={styles.container}>
       {/* Cabecera Superior con Botón para Crear */}
-      <View style={styles.topHeader}>
+      <View style={[styles.topHeader, { paddingTop: Math.max(insets.top + 12, 48) }]}>
         <View style={styles.topHeaderRow}>
           <View style={styles.tituloWrapper}>
             <Text style={styles.badgeTop}>RADAR GEOGRÁFICO</Text>
             <Text style={styles.tituloTop}>CAMPOS & CANCHAS</Text>
           </View>
 
-          <TouchableOpacity style={styles.btnRegistrarCampo} onPress={abrirFormCrear}>
-            <MaterialCommunityIcons name="plus" size={16} color="#fff" style={{ marginRight: 2 }} />
+          <TouchableOpacity
+            style={styles.btnRegistrarCampo}
+            onPress={abrirFormCrear}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Registrar nuevo campo"
+          >
+            <MaterialCommunityIcons name="plus" size={16} color={colors.onPrimary} style={{ marginRight: 2 }} />
             <Text style={styles.txtRegistrarCampo}>NUEVO CAMPO</Text>
           </TouchableOpacity>
         </View>
@@ -586,11 +595,14 @@ export const CanchasScreen = () => {
           <TouchableOpacity
             style={[styles.filtroChip, modoFiltro === 'MI_REGION' && styles.filtroChipActivo]}
             onPress={seleccionarModoMiRegion}
+            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Filtrar por mi región ${miRegion}`}
           >
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={14}
-              color={modoFiltro === 'MI_REGION' ? '#fff' : colors.textSecondary}
+              color={modoFiltro === 'MI_REGION' ? colors.text : colors.textSecondary}
               style={{ marginRight: 4 }}
             />
             <Text style={[styles.filtroChipTxt, modoFiltro === 'MI_REGION' && styles.filtroChipTxtActivo]}>
@@ -602,11 +614,14 @@ export const CanchasScreen = () => {
           <TouchableOpacity
             style={[styles.filtroChip, modoFiltro === 'TODAS' && styles.filtroChipActivo]}
             onPress={seleccionarModoTodas}
+            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel="Mostrar campos de todas las regiones"
           >
             <MaterialCommunityIcons
               name="earth"
               size={14}
-              color={modoFiltro === 'TODAS' ? '#fff' : colors.textSecondary}
+              color={modoFiltro === 'TODAS' ? colors.text : colors.textSecondary}
               style={{ marginRight: 4 }}
             />
             <Text style={[styles.filtroChipTxt, modoFiltro === 'TODAS' && styles.filtroChipTxtActivo]}>
@@ -621,11 +636,14 @@ export const CanchasScreen = () => {
               modoFiltro === 'PERSONALIZADA' && styles.filtroChipActivo,
             ]}
             onPress={abrirModalFiltros}
+            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel="Filtrar regiones personalizadas"
           >
             <MaterialCommunityIcons
               name="filter-variant"
               size={14}
-              color={modoFiltro === 'PERSONALIZADA' ? '#fff' : colors.textSecondary}
+              color={modoFiltro === 'PERSONALIZADA' ? colors.text : colors.textSecondary}
               style={{ marginRight: 4 }}
             />
             <Text
@@ -745,47 +763,56 @@ export const CanchasScreen = () => {
           <Text style={styles.textoCargando}>Localizando campos de juego...</Text>
         </View>
       ) : (
-        <FlatList
-          data={canchasFiltradas}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderCancha}
-          contentContainerStyle={styles.lista}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          refreshControl={
-            <RefreshControl
-              refreshing={refrescando}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.vacio}>
-              <MaterialCommunityIcons
-                name="map-search-outline"
-                size={48}
-                color={colors.textSecondary}
-                style={{ marginBottom: 12 }}
+        <>
+          {errorCarga && canchasFiltradas.length > 0 && (
+            <EstadoErrorRed mensaje={errorCarga} onReintentar={onRefresh} compacto />
+          )}
+          <FlatList
+            data={canchasFiltradas}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderCancha}
+            contentContainerStyle={styles.lista}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            refreshControl={
+              <RefreshControl
+                refreshing={refrescando}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
               />
-              <Text style={styles.tituloVacio}>Sin campos en esta selección</Text>
-              <Text style={styles.subtituloVacio}>
-                {modoFiltro === 'MI_REGION'
-                  ? `No se encontraron canchas activas registradas en ${miRegion}. Puedes cambiar al filtro "TODAS" para ver campos en otras zonas o registrar uno nuevo.`
-                  : 'No se encontraron canchas activas para los filtros seleccionados (Región / Modalidad). Puedes registrar una nueva cancha con el botón superior.'}
-              </Text>
-              {modoFiltro === 'MI_REGION' && (
-                <TouchableOpacity
-                  style={[styles.modalBtnPrimario, { marginTop: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
-                  onPress={seleccionarModoTodas}
-                  activeOpacity={0.85}
-                >
-                  <MaterialCommunityIcons name="earth" size={16} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.modalTxtPrimario}>EXPLORAR TODAS LAS REGIONES</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          }
-        />
+            }
+            ListEmptyComponent={
+              errorCarga ? (
+                <EstadoErrorRed mensaje={errorCarga} onReintentar={onRefresh} />
+              ) : (
+                <View style={styles.vacio}>
+                  <MaterialCommunityIcons
+                    name="map-search-outline"
+                    size={48}
+                    color={colors.textSecondary}
+                    style={{ marginBottom: 12 }}
+                  />
+                  <Text style={styles.tituloVacio}>Sin campos en esta selección</Text>
+                  <Text style={styles.subtituloVacio}>
+                    {modoFiltro === 'MI_REGION'
+                      ? `No se encontraron canchas activas registradas en ${miRegion}. Puedes cambiar al filtro "TODAS" para ver campos en otras zonas o registrar uno nuevo.`
+                      : 'No se encontraron canchas activas para los filtros seleccionados (Región / Modalidad). Puedes registrar una nueva cancha con el botón superior.'}
+                  </Text>
+                  {modoFiltro === 'MI_REGION' && (
+                    <TouchableOpacity
+                      style={[styles.modalBtnPrimario, { marginTop: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+                      onPress={seleccionarModoTodas}
+                      activeOpacity={0.85}
+                    >
+                      <MaterialCommunityIcons name="earth" size={16} color={colors.onPrimary} style={{ marginRight: 8 }} />
+                      <Text style={styles.modalTxtPrimario}>EXPLORAR TODAS LAS REGIONES</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )
+            }
+          />
+        </>
       )}
 
       {/* MODAL: FILTRAR POR MÚLTIPLES REGIONES */}
@@ -1064,6 +1091,9 @@ export const CanchasScreen = () => {
                     <TouchableOpacity
                       style={styles.btnEliminarFoto}
                       onPress={() => handleEliminarFoto(index)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Eliminar foto adjunta"
                     >
                       <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
                     </TouchableOpacity>
@@ -1104,7 +1134,7 @@ export const CanchasScreen = () => {
                 disabled={guardandoForm}
               >
                 {guardandoForm ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <Text style={styles.modalTxtPrimario}>
                     {modoForm === 'CREAR' ? 'GUARDAR CAMPO' : 'ACTUALIZAR CAMPO'}
@@ -1254,6 +1284,9 @@ export const CanchasScreen = () => {
                     <TouchableOpacity
                       style={styles.btnEliminarFoto}
                       onPress={() => handleEliminarFotoSugerencia(index)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Eliminar foto adjunta"
                     >
                       <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
                     </TouchableOpacity>
@@ -1293,7 +1326,7 @@ export const CanchasScreen = () => {
                 disabled={enviandoSugerencia}
               >
                 {enviandoSugerencia ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color={colors.onPrimary} size="small" />
                 ) : (
                   <Text style={styles.modalTxtPrimario}>ENVIAR A COMANDANCIA</Text>
                 )}
@@ -1325,7 +1358,7 @@ const styles = StyleSheet.create({
   },
   topHeader: {
     paddingHorizontal: 20,
-    paddingTop: 54,
+    paddingTop: 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
@@ -1348,11 +1381,12 @@ const styles = StyleSheet.create({
   tituloTop: {
     color: colors.text,
     fontSize: 20,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
   },
   btnRegistrarCampo: {
     backgroundColor: colors.primary,
+    minHeight: 40,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1361,7 +1395,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   txtRegistrarCampo: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1384,6 +1418,7 @@ const styles = StyleSheet.create({
   filtroChip: {
     backgroundColor: colors.inputBg,
     borderRadius: 20,
+    minHeight: 38,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderWidth: 1,
@@ -1393,7 +1428,7 @@ const styles = StyleSheet.create({
   },
   filtroChipActivo: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
   },
   filtroChipTxt: {
     color: colors.textSecondary,
@@ -1408,7 +1443,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderBottomWidth: 1,
@@ -1500,7 +1535,7 @@ const styles = StyleSheet.create({
   canchaNombre: {
     color: colors.text,
     fontSize: 16,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
   },
   canchaUbicacion: {
     color: colors.textSecondary,
@@ -1518,11 +1553,11 @@ const styles = StyleSheet.create({
     borderColor: colors.blueTeam,
   },
   badgeEscuadra: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     borderColor: colors.success,
   },
   textoBadgeAdmin: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -1585,7 +1620,7 @@ const styles = StyleSheet.create({
   },
   btnEditar: {
     flex: 1,
-    backgroundColor: 'rgba(214, 158, 46, 0.15)',
+    backgroundColor: colors.warningSoft,
     borderRadius: 8,
     paddingVertical: 10,
     flexDirection: 'row',
@@ -1629,7 +1664,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   txtBtnDetalleEditar: {
-    color: '#000',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1683,7 +1718,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   modalContenido: {
@@ -1721,7 +1756,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardBorder,
   },
   modalRegionItemActivo: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
   },
   modalRegionTexto: {
@@ -1764,7 +1799,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalTxtPrimario: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
   },
@@ -1827,7 +1862,7 @@ const styles = StyleSheet.create({
   },
   tipoCanchaCardActiva: {
     borderColor: colors.primary,
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
   },
   tipoCanchaIcono: {
     fontSize: 22,
@@ -1844,7 +1879,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   badgeEnRevision: {
-    backgroundColor: 'rgba(214, 158, 46, 0.2)',
+    backgroundColor: colors.warningSoft,
     borderColor: colors.warning,
     borderWidth: 1,
     paddingHorizontal: 7,
@@ -1855,7 +1890,7 @@ const styles = StyleSheet.create({
   },
   textoBadgeEnRevision: {
     color: colors.warning,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
@@ -1863,19 +1898,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 'auto',
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   conFotosTxt: {
     color: colors.primary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
   },
   btnVerCancha: {
     flex: 1,
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -1946,7 +1981,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'dashed',
@@ -2070,7 +2105,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   txtBtnAbrirMapsGrande: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1,
@@ -2079,9 +2114,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.dangerBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,

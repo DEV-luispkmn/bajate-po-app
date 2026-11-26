@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import {
@@ -22,21 +23,25 @@ import {
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
 import { ModalNotificaciones } from '../../components/ModalNotificaciones';
 import { ModalCodigoTactico } from '../../components/ModalCodigoTactico';
+import { EstadoErrorRed } from '../../components/EstadoErrorRed';
 import { listarNotificacionesApi } from '../../api/notificaciones.service';
 import { limpiarRecordatoriosEventosInactivos } from '../../services/deviceNotifications.service';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import { obtenerEstiloFama } from '../../utils/fama.util';
 import type { NavigationProp } from '../../navigation/types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 export const HomeScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const insets = useSafeAreaInsets();
   const { jugador, logout } = useAuth();
 
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
 
   // Notificaciones tácticas
   const [modalNotificacionesVisible, setModalNotificacionesVisible] = useState(false);
@@ -69,6 +74,7 @@ export const HomeScreen = () => {
 
   const cargarEventos = async () => {
     try {
+      setErrorCarga(null);
       const [data, notifRes] = await Promise.all([
         listarEventosApi(undefined, jugador?.id),
         listarNotificacionesApi().catch(() => ({ notificaciones: [], noLeidas: 0 })),
@@ -79,8 +85,11 @@ export const HomeScreen = () => {
       }
       // Cancelar automáticamente recordatorios de 1 día o 30 min para eventos finalizados o cancelados
       limpiarRecordatoriosEventosInactivos(data).catch(() => null);
-    } catch {
-      // Error silencioso
+    } catch (error: any) {
+      setErrorCarga(
+        error?.message ||
+          'No se pudieron sincronizar las operaciones. Revisa tu conexión e intenta nuevamente.',
+      );
     } finally {
       setCargando(false);
       setRefrescando(false);
@@ -120,13 +129,15 @@ export const HomeScreen = () => {
       return false;
     }
 
-    // Regla: Los eventos VERSUS solo son visibles para miembros de los equipos participantes (o invitados directos por código)
+    // Regla: Los eventos VERSUS solo son visibles para miembros de los equipos participantes (o el organizador / invitados directos por código)
     if (e.tipo === 'VERSUS') {
       const miEquipoId = jugador?.equipoId;
+      const esOrganizadorEvento = Boolean(miId && Number(e.organizadorId) === Number(miId));
       const esMiembroEquipoVersus = Boolean(
-        miEquipoId && (e.equipoAId === miEquipoId || e.equipoBId === miEquipoId),
+        miEquipoId &&
+          (Number(e.equipoAId) === Number(miEquipoId) || Number(e.equipoBId) === Number(miEquipoId)),
       );
-      if (!esMiembroEquipoVersus) {
+      if (!esMiembroEquipoVersus && !esOrganizadorEvento) {
         return false;
       }
     }
@@ -183,6 +194,22 @@ export const HomeScreen = () => {
     const miInscripcion = item.jugadoresInscritos?.find((j) => j.jugadorId === miId);
     const estaInscrito = Boolean(miInscripcion);
     const esTerminadoOCancelado = item.estado === 'FINALIZADO' || item.estado === 'CANCELADO';
+    const miEquipoId = jugador?.equipoId;
+    const esMiembroEquipoVersus = Boolean(
+      item.tipo === 'VERSUS' &&
+        miEquipoId &&
+        (Number(item.equipoAId) === Number(miEquipoId) || Number(item.equipoBId) === Number(miEquipoId)),
+    );
+    const esCoorganizador = Boolean(
+      item.coorganizadores?.some((co) => Number(co.jugadorId) === Number(miId)),
+    );
+    const requiereCodigoPrivado =
+      item.privacidad === 'CERRADO' &&
+      !estaInscrito &&
+      Number(item.organizadorId) !== Number(miId) &&
+      !esCoorganizador &&
+      !esMiembroEquipoVersus &&
+      !esTerminadoOCancelado;
     const bordeLateralEstado = esTerminadoOCancelado
       ? item.estado === 'CANCELADO'
         ? 'rgba(239, 68, 68, 0.4)'
@@ -229,7 +256,7 @@ export const HomeScreen = () => {
                 {item.estado.replace('_', ' ')}
               </Text>
             </View>
-            {item.privacidad === 'CERRADO' && !esTerminadoOCancelado && (
+            {item.privacidad === 'CERRADO' && !esMiembroEquipoVersus && !esTerminadoOCancelado && (
               <View style={styles.badgePrivadaTag}>
                 <MaterialCommunityIcons name="lock" size={11} color={colors.warning} style={{ marginRight: 2 }} />
                 <Text style={styles.textoPrivadaTag}>PRIVADA</Text>
@@ -239,7 +266,7 @@ export const HomeScreen = () => {
 
           {estaInscrito && !esTerminadoOCancelado && (
             <View style={styles.badgeInscritoTag}>
-              <MaterialCommunityIcons name="shield-check" size={13} color="#fff" style={{ marginRight: 3 }} />
+              <MaterialCommunityIcons name="shield-check" size={13} color={colors.text} style={{ marginRight: 3 }} />
               <Text style={styles.textoInscritoTag}>ALISTADO</Text>
             </View>
           )}
@@ -314,7 +341,7 @@ export const HomeScreen = () => {
           ]}
           activeOpacity={0.8}
           onPress={() => {
-            if (item.privacidad === 'CERRADO' && !estaInscrito && item.organizadorId !== miId && !esTerminadoOCancelado) {
+            if (requiereCodigoPrivado) {
               setModalCodigoVisible(true);
               return;
             }
@@ -332,7 +359,7 @@ export const HomeScreen = () => {
               ? 'REVISAR EVENTO'
               : estaInscrito
               ? 'ENTRAR A LA SALA TÁCTICA'
-              : item.privacidad === 'CERRADO'
+              : requiereCodigoPrivado
               ? 'INGRESAR CÓDIGO PRIVADO'
               : 'VER DETALLES Y UNIRSE'}
           </Text>
@@ -342,7 +369,7 @@ export const HomeScreen = () => {
                 ? 'clipboard-text-outline'
                 : estaInscrito
                 ? 'arrow-right'
-                : item.privacidad === 'CERRADO'
+                : requiereCodigoPrivado
                 ? 'lock-outline'
                 : 'arrow-right'
             }
@@ -351,10 +378,8 @@ export const HomeScreen = () => {
               esTerminadoOCancelado
                 ? colors.textSecondary
                 : estaInscrito
-                ? colors.success
-                : item.privacidad === 'CERRADO'
-                ? colors.warning
-                : colors.primary
+                ? '#fff'
+                : colors.onPrimary
             }
             style={{ marginLeft: 4 }}
           />
@@ -366,7 +391,7 @@ export const HomeScreen = () => {
   return (
     <View style={styles.container}>
       {/* 1. Barra superior: Operador en Línea (Solo texto limpio) */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: Math.max(insets.top + 12, 48) }]}>
         <View>
           <Text style={styles.saludoOperador}>OPERADOR EN LÍNEA</Text>
           <Text style={[styles.aliasOperador, { color: estiloFama.colorTexto }]}>
@@ -378,6 +403,9 @@ export const HomeScreen = () => {
             style={styles.btnCampanaTopBar}
             onPress={() => setModalNotificacionesVisible(true)}
             activeOpacity={0.8}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel={conteoNoLeidas > 0 ? `Notificaciones, ${conteoNoLeidas} sin leer` : 'Abrir notificaciones'}
           >
             <MaterialCommunityIcons
               name={conteoNoLeidas > 0 ? 'bell-badge' : 'bell-outline'}
@@ -396,6 +424,9 @@ export const HomeScreen = () => {
             style={styles.botonAjustes}
             onPress={() => navigation.navigate('Ajustes')}
             activeOpacity={0.8}
+            hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir ajustes"
           >
             <MaterialCommunityIcons name="cog-outline" size={16} color={colors.primary} style={{ marginRight: 4 }} />
             <Text style={styles.textoAjustes}>AJUSTES</Text>
@@ -512,6 +543,9 @@ export const HomeScreen = () => {
                 }
               }}
               activeOpacity={0.8}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={explorarOtrasRegiones ? 'Mostrar solo mi región' : 'Ver eventos de todas las regiones'}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Text style={styles.txtToggleAlcance}>
@@ -534,6 +568,8 @@ export const HomeScreen = () => {
                 style={styles.btnSelectorRegionFiltro}
                 onPress={() => setModalSelectorRegionVisible(true)}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`Seleccionar región de filtro, actual: ${filtroRegion === 'TODAS' ? 'Todas las regiones' : filtroRegion}`}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
                   <MaterialCommunityIcons name="map-marker-radius" size={16} color={colors.primary} />
@@ -565,6 +601,10 @@ export const HomeScreen = () => {
                       style={[styles.chipTipoFiltro, activo && styles.chipTipoFiltroActivo]}
                       onPress={() => setFiltroTipo(tipo.id)}
                       activeOpacity={0.8}
+                      hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: activo }}
+                      accessibilityLabel={`Filtrar por ${tipo.label}`}
                     >
                       <Text style={[styles.txtChipTipoFiltro, activo && styles.txtChipTipoFiltroActivo]}>
                         {tipo.label}
@@ -585,20 +625,26 @@ export const HomeScreen = () => {
           <Text style={styles.textoCargando}>Buscando operaciones tácticas...</Text>
         </View>
       ) : (
-        <FlatList
-          data={eventosAMostrar}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderEvento}
-          contentContainerStyle={styles.lista}
-          refreshControl={
-            <RefreshControl
-              refreshing={refrescando}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            tabFeed === 'INSCRITOS' ? (
+        <>
+          {errorCarga && eventosAMostrar.length > 0 && (
+            <EstadoErrorRed mensaje={errorCarga} onReintentar={onRefresh} compacto />
+          )}
+          <FlatList
+            data={eventosAMostrar}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderEvento}
+            contentContainerStyle={styles.lista}
+            refreshControl={
+              <RefreshControl
+                refreshing={refrescando}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+              />
+            }
+            ListEmptyComponent={
+              errorCarga ? (
+                <EstadoErrorRed mensaje={errorCarga} onReintentar={onRefresh} />
+              ) : tabFeed === 'INSCRITOS' ? (
               <View style={styles.vacio}>
                 <MaterialCommunityIcons
                   name="shield-outline"
@@ -653,7 +699,8 @@ export const HomeScreen = () => {
               </View>
             )
           }
-        />
+          />
+        </>
       )}
 
       {/* Modal para ingresar Código Táctico de 6 dígitos/letras */}
@@ -768,7 +815,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 54,
+    paddingTop: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
@@ -779,9 +826,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   btnCampanaTopBar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -794,9 +841,9 @@ const styles = StyleSheet.create({
     top: -3,
     right: -3,
     backgroundColor: colors.primary,
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -804,8 +851,8 @@ const styles = StyleSheet.create({
     borderColor: colors.background,
   },
   txtBadgeCampanaContador: {
-    color: '#fff',
-    fontSize: 9,
+    color: colors.onPrimary,
+    fontSize: 10,
     fontWeight: '900',
   },
   saludoOperador: {
@@ -816,7 +863,7 @@ const styles = StyleSheet.create({
   },
   aliasOperador: {
     fontSize: 22,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     color: colors.text,
     letterSpacing: 0.5,
   },
@@ -826,6 +873,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    minHeight: 40,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
@@ -907,11 +955,11 @@ const styles = StyleSheet.create({
     borderColor: colors.cardBorder,
   },
   tabSegmentedActivo: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
   },
   tabSegmentedActivoInscritos: {
-    backgroundColor: 'rgba(56, 161, 105, 0.15)',
+    backgroundColor: colors.successSoft,
     borderColor: colors.success,
   },
   tabSegmentedTxt: {
@@ -953,9 +1001,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 6,
-    backgroundColor: 'rgba(224, 109, 40, 0.12)',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: 'rgba(224, 109, 40, 0.3)',
+    borderColor: colors.primaryBorder,
   },
   txtToggleAlcance: {
     color: colors.primary,
@@ -1026,7 +1074,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardBorder,
   },
   modalRegionItemActivo: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 6,
   },
   modalRegionTexto: {
@@ -1058,7 +1106,7 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.primary,
   },
   cardInscrito: {
-    borderColor: 'rgba(56, 161, 105, 0.4)',
+    borderColor: colors.successBorder,
     borderLeftColor: colors.success,
   },
   cardHeader: {
@@ -1096,7 +1144,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
   },
   badgeFinalizado: {
-    backgroundColor: 'rgba(56, 161, 105, 0.25)',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
     borderColor: colors.success,
   },
@@ -1106,7 +1154,7 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   textoBadgeEstado: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1120,7 +1168,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   textoInscritoTag: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -1128,7 +1176,7 @@ const styles = StyleSheet.create({
   badgePrivadaTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(214, 158, 46, 0.18)',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     paddingHorizontal: 6,
@@ -1137,14 +1185,14 @@ const styles = StyleSheet.create({
   },
   textoPrivadaTag: {
     color: colors.warning,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,
   },
   bandoRolBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 161, 105, 0.12)',
+    backgroundColor: colors.successSoft,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -1162,7 +1210,7 @@ const styles = StyleSheet.create({
   tituloEvento: {
     color: colors.text,
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     marginBottom: 10,
   },
   infoMeta: {
@@ -1210,18 +1258,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   btnVerDetallesHistorial: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.disabled,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   txtVerDetalles: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 1,
   },
   txtVerDetallesInscrito: {
-    color: '#fff',
+    color: colors.text,
   },
   txtVerDetallesHistorial: {
     color: colors.textSecondary,
@@ -1298,7 +1346,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -1341,13 +1389,13 @@ const styles = StyleSheet.create({
   versusDueloRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(224, 109, 40, 0.3)',
+    borderColor: colors.primaryBorder,
     gap: 8,
   },
   versusEquipoBox: {
@@ -1368,7 +1416,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   versusDueloVsTxt: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '900',
   },
