@@ -12,6 +12,10 @@ import {
   TextInput,
   ScrollView,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -212,7 +216,7 @@ export const CanchasScreen = () => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        quality: 0.65,
+        quality: 0.45,
         base64: true,
       });
 
@@ -275,7 +279,7 @@ export const CanchasScreen = () => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        quality: 0.65,
+        quality: 0.45,
         base64: true,
       });
 
@@ -312,6 +316,7 @@ export const CanchasScreen = () => {
   };
 
   const handleEnviarSugerencia = async () => {
+    Keyboard.dismiss();
     if (!canchaParaSugerir) return;
     if (!textoPropuesta.trim()) {
       setErrorSugerenciaModal('Por favor describe las sugerencias o correcciones para la cancha.');
@@ -403,6 +408,7 @@ export const CanchasScreen = () => {
 
   // Guardar Cancha (Crear o Editar)
   const handleGuardarCancha = async () => {
+    Keyboard.dismiss();
     if (!nombre.trim()) {
       setErrorFormModal('El nombre del campo de juego es obligatorio.');
       return;
@@ -744,6 +750,8 @@ export const CanchasScreen = () => {
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderCancha}
           contentContainerStyle={styles.lista}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={refrescando}
@@ -852,186 +860,221 @@ export const CanchasScreen = () => {
         visible={modalFormVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalFormVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalFormVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={[styles.modalContenido, { maxHeight: '88%' }]}>
-            <Text style={styles.modalTitulo}>
-              {modoForm === 'CREAR' ? 'REGISTRAR CAMPO TÁCTICO' : 'EDITAR CAMPO TÁCTICO'}
-            </Text>
-            <Text style={styles.modalSubtitulo}>
-              {modoForm === 'CREAR'
-                ? 'Agrega una nueva cancha para organizar partidas y versus.'
-                : 'Modifica las características o geolocalización de la cancha.'}
-            </Text>
-
-            {modoForm === 'CREAR' && (
-              <View style={styles.bannerRevisionInfo}>
-                <MaterialCommunityIcons name="clock-alert-outline" size={18} color={colors.warning} style={{ marginRight: 8 }} />
-                <Text style={styles.txtBannerRevisionInfo}>
-                  <Text style={{ fontWeight: 'bold' }}>Periodo de Revisión:</Text> Los campos nuevos pasan por verificación técnica de la comandancia. Quedará registrada en tu apartado de Sugerencias para que sigas su estado.
-                </Text>
-              </View>
-            )}
-
-            <ScrollView style={{ marginBottom: 12 }}>
-              {/* Nombre */}
-              <Text style={styles.inputLabel}>NOMBRE DEL CAMPO (*):</Text>
-              <TextInput
-                style={styles.inputModal}
-                value={nombre}
-                onChangeText={setNombre}
-                placeholder="Ej: Fuerte Airsoft / CQB Lampa"
-                placeholderTextColor={colors.textMuted}
-              />
-
-              {/* Región Selector */}
-              <Text style={styles.inputLabel}>REGIÓN DE CHILE (*):</Text>
-              <TouchableOpacity
-                style={styles.dropdownSelector}
-                onPress={() => setModalSelectorRegionForm(true)}
-              >
-                <Text style={styles.dropdownSelectorTxt}>{regionForm}</Text>
-                <Text style={styles.dropdownFlecha}>▼</Text>
-              </TouchableOpacity>
-
-              {/* Ciudad / Comuna */}
-              <Text style={styles.inputLabel}>CIUDAD / COMUNA:</Text>
-              <TextInput
-                style={styles.inputModal}
-                value={ciudadForm}
-                onChangeText={setCiudadForm}
-                placeholder="Ej: Lampa / Quilpué / Concepción"
-                placeholderTextColor={colors.textMuted}
-              />
-
-              {/* Coordenadas GPS */}
-              <View style={styles.coordenadasRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>LATITUD (GPS):</Text>
-                  <TextInput
-                    style={styles.inputModal}
-                    value={latitudForm}
-                    onChangeText={setLatitudForm}
-                    placeholder="-33.4560"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>LONGITUD (GPS):</Text>
-                  <TextInput
-                    style={styles.inputModal}
-                    value={longitudForm}
-                    onChangeText={setLongitudForm}
-                    placeholder="-70.6480"
-                    placeholderTextColor={colors.textMuted}
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
-
-              {/* Tipo de Cancha / Administración */}
-              <Text style={[styles.inputLabel, { marginTop: 6 }]}>ADMINISTRACIÓN DEL CAMPO:</Text>
-              <View style={styles.tipoCanchaOpciones}>
-                {/* Opción Cancha Abierta */}
-                <TouchableOpacity
-                  style={[
-                    styles.tipoCanchaCard,
-                    esAbiertaForm && !asociarAEscuadra && styles.tipoCanchaCardActiva,
-                  ]}
-                  onPress={() => {
-                    setEsAbiertaForm(true);
-                    setAsociarAEscuadra(false);
-                  }}
-                >
-                  <MaterialCommunityIcons name="earth" size={24} color={colors.primary} style={{ marginRight: 10 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tipoCanchaTitulo}>CANCHA ABIERTA / COMUNITARIA</Text>
-                    <Text style={styles.tipoCanchaDesc}>
-                      Editable por toda la comunidad de operadores para actualizar datos.
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-
-                {/* Opción Cancha de Escuadra */}
-                <TouchableOpacity
-                  style={[
-                    styles.tipoCanchaCard,
-                    asociarAEscuadra && styles.tipoCanchaCardActiva,
-                  ]}
-                  onPress={() => {
-                    if (!jugador?.equipoId) {
-                      setAvisoTactico({
-                        visible: true,
-                        titulo: 'SIN ESCUADRÓN ACTIVO',
-                        mensaje: 'Para registrar un campo oficial de equipo debes pertenecer o liderar un escuadrón. Se mantendrá como cancha comunitaria.',
-                        tipo: 'advertencia',
-                        icono: 'shield-alert-outline',
-                      });
-                      setEsAbiertaForm(true);
-                      setAsociarAEscuadra(false);
-                      return;
-                    }
-                    setAsociarAEscuadra(true);
-                    setEsAbiertaForm(false);
-                  }}
-                >
-                  <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} style={{ marginRight: 10 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tipoCanchaTitulo}>CAMPO OFICIAL DE MI EQUIPO</Text>
-                    <Text style={styles.tipoCanchaDesc}>
-                      {jugador?.equipoId
-                        ? 'Administrada exclusivamente por los miembros de tu equipo.'
-                        : 'Requiere pertenecer a un equipo registrado.'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Descripción Táctica */}
-              <Text style={[styles.inputLabel, { marginTop: 8 }]}>DESCRIPCIÓN & DETALLES DEL TERRENO:</Text>
-              <TextInput
-                style={[styles.inputModal, { minHeight: 70, textAlignVertical: 'top' }]}
-                value={descripcion}
-                onChangeText={setDescripcion}
-                placeholder="Terreno bosque, zona CQB con trincheras, arriendo de réplicas, quincho, límite FPS..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={3}
-              />
-
-              {/* Apartado de Fotos y Evidencias */}
-              <Text style={[styles.inputLabel, { marginTop: 14 }]}>FOTOS Y EVIDENCIAS DEL CAMPO:</Text>
-              <Text style={styles.inputAyuda}>
-                Sube fotos de las zonas de juego, accesos o seguridad con una breve descripción para validar el campo con mayor rapidez:
+            <Pressable onPress={Keyboard.dismiss} accessible={false}>
+              <Text style={styles.modalTitulo}>
+                {modoForm === 'CREAR' ? 'REGISTRAR CAMPO TÁCTICO' : 'EDITAR CAMPO TÁCTICO'}
+              </Text>
+              <Text style={styles.modalSubtitulo}>
+                {modoForm === 'CREAR'
+                  ? 'Agrega una nueva cancha para organizar partidas y versus.'
+                  : 'Modifica las características o geolocalización de la cancha.'}
               </Text>
 
-              {fotosForm.map((foto, index) => (
-                <View key={index} style={styles.fotoItemCard}>
-                  <Image source={{ uri: foto.url }} style={styles.fotoMiniatura} />
-                  <View style={{ flex: 1, marginHorizontal: 8 }}>
+              {modoForm === 'CREAR' && (
+                <View style={styles.bannerRevisionInfo}>
+                  <MaterialCommunityIcons name="clock-alert-outline" size={18} color={colors.warning} style={{ marginRight: 8 }} />
+                  <Text style={styles.txtBannerRevisionInfo}>
+                    <Text style={{ fontWeight: 'bold' }}>Periodo de Revisión:</Text> Los campos nuevos pasan por verificación técnica de la comandancia. Quedará registrada en tu apartado de Sugerencias para que sigas su estado.
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+
+            <ScrollView
+              style={{ marginBottom: 12 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                {/* Nombre */}
+                <Text style={styles.inputLabel}>NOMBRE DEL CAMPO (*):</Text>
+                <TextInput
+                  style={styles.inputModal}
+                  value={nombre}
+                  onChangeText={setNombre}
+                  placeholder="Ej: Fuerte Airsoft / CQB Lampa"
+                  placeholderTextColor={colors.textMuted}
+                  returnKeyType="done"
+                />
+
+                {/* Región Selector */}
+                <Text style={styles.inputLabel}>REGIÓN DE CHILE (*):</Text>
+                <TouchableOpacity
+                  style={styles.dropdownSelector}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setModalSelectorRegionForm(true);
+                  }}
+                >
+                  <Text style={styles.dropdownSelectorTxt}>{regionForm}</Text>
+                  <Text style={styles.dropdownFlecha}>▼</Text>
+                </TouchableOpacity>
+
+                {/* Ciudad / Comuna */}
+                <Text style={styles.inputLabel}>CIUDAD / COMUNA:</Text>
+                <TextInput
+                  style={styles.inputModal}
+                  value={ciudadForm}
+                  onChangeText={setCiudadForm}
+                  placeholder="Ej: Lampa / Quilpué / Concepción"
+                  placeholderTextColor={colors.textMuted}
+                  returnKeyType="done"
+                />
+
+                {/* Coordenadas GPS */}
+                <View style={styles.coordenadasRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>LATITUD (GPS):</Text>
                     <TextInput
-                      style={styles.inputFotoDesc}
-                      value={foto.descripcion}
-                      onChangeText={(txt) => handleActualizarDescFoto(index, txt)}
-                      placeholder="Descripción (ej: Respawn Alfa / Bosque)"
+                      style={styles.inputModal}
+                      value={latitudForm}
+                      onChangeText={setLatitudForm}
+                      placeholder="-33.4560"
                       placeholderTextColor={colors.textMuted}
+                      keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
                     />
                   </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inputLabel}>LONGITUD (GPS):</Text>
+                    <TextInput
+                      style={styles.inputModal}
+                      value={longitudForm}
+                      onChangeText={setLongitudForm}
+                      placeholder="-70.6480"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                  </View>
+                </View>
+
+                {/* Tipo de Cancha / Administración */}
+                <Text style={[styles.inputLabel, { marginTop: 6 }]}>ADMINISTRACIÓN DEL CAMPO:</Text>
+                <View style={styles.tipoCanchaOpciones}>
+                  {/* Opción Cancha Abierta */}
                   <TouchableOpacity
-                    style={styles.btnEliminarFoto}
-                    onPress={() => handleEliminarFoto(index)}
+                    style={[
+                      styles.tipoCanchaCard,
+                      esAbiertaForm && !asociarAEscuadra && styles.tipoCanchaCardActiva,
+                    ]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setEsAbiertaForm(true);
+                      setAsociarAEscuadra(false);
+                    }}
                   >
-                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                    <MaterialCommunityIcons name="earth" size={24} color={colors.primary} style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.tipoCanchaTitulo}>CANCHA ABIERTA / COMUNITARIA</Text>
+                      <Text style={styles.tipoCanchaDesc}>
+                        Editable por toda la comunidad de operadores para actualizar datos.
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Opción Cancha de Escuadra */}
+                  <TouchableOpacity
+                    style={[
+                      styles.tipoCanchaCard,
+                      asociarAEscuadra && styles.tipoCanchaCardActiva,
+                    ]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      if (!jugador?.equipoId) {
+                        setAvisoTactico({
+                          visible: true,
+                          titulo: 'SIN ESCUADRÓN ACTIVO',
+                          mensaje: 'Para registrar un campo oficial de equipo debes pertenecer o liderar un escuadrón. Se mantendrá como cancha comunitaria.',
+                          tipo: 'advertencia',
+                          icono: 'shield-alert-outline',
+                        });
+                        setEsAbiertaForm(true);
+                        setAsociarAEscuadra(false);
+                        return;
+                      }
+                      setAsociarAEscuadra(true);
+                      setEsAbiertaForm(false);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.tipoCanchaTitulo}>CAMPO OFICIAL DE MI EQUIPO</Text>
+                      <Text style={styles.tipoCanchaDesc}>
+                        {jugador?.equipoId
+                          ? 'Administrada exclusivamente por los miembros de tu equipo.'
+                          : 'Requiere pertenecer a un equipo registrado.'}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
-              ))}
 
-              <TouchableOpacity style={styles.btnAgregarFoto} onPress={handleAgregarFoto}>
-                <MaterialCommunityIcons name="camera-plus" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.txtBtnAgregarFoto}>+ AÑADIR FOTO Y DESCRIPCIÓN</Text>
-              </TouchableOpacity>
+                {/* Descripción Táctica */}
+                <Text style={[styles.inputLabel, { marginTop: 8 }]}>DESCRIPCIÓN & DETALLES DEL TERRENO:</Text>
+                <TextInput
+                  style={[styles.inputModal, { minHeight: 70, textAlignVertical: 'top' }]}
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  placeholder="Terreno bosque, zona CQB con trincheras, arriendo de réplicas, quincho, límite FPS..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={3}
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+
+                {/* Apartado de Fotos y Evidencias */}
+                <Text style={[styles.inputLabel, { marginTop: 14 }]}>FOTOS Y EVIDENCIAS DEL CAMPO:</Text>
+                <Text style={styles.inputAyuda}>
+                  Sube fotos de las zonas de juego, accesos o seguridad con una breve descripción para validar el campo con mayor rapidez:
+                </Text>
+
+                {fotosForm.map((foto, index) => (
+                  <View key={index} style={styles.fotoItemCard}>
+                    <Image source={{ uri: foto.url }} style={styles.fotoMiniatura} />
+                    <View style={{ flex: 1, marginHorizontal: 8 }}>
+                      <TextInput
+                        style={styles.inputFotoDesc}
+                        value={foto.descripcion}
+                        onChangeText={(txt) => handleActualizarDescFoto(index, txt)}
+                        placeholder="Descripción (ej: Respawn Alfa / Bosque)"
+                        placeholderTextColor={colors.textMuted}
+                        returnKeyType="done"
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.btnEliminarFoto}
+                      onPress={() => handleEliminarFoto(index)}
+                    >
+                      <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <TouchableOpacity style={styles.btnAgregarFoto} onPress={handleAgregarFoto}>
+                  <MaterialCommunityIcons name="camera-plus" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.txtBtnAgregarFoto}>+ AÑADIR FOTO Y DESCRIPCIÓN</Text>
+                </TouchableOpacity>
+              </Pressable>
             </ScrollView>
 
             {errorFormModal ? (
@@ -1046,6 +1089,7 @@ export const CanchasScreen = () => {
               <TouchableOpacity
                 style={styles.modalBtnSecundario}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorFormModal(null);
                   setModalFormVisible(false);
                 }}
@@ -1069,7 +1113,7 @@ export const CanchasScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* SELECTOR DE REGIÓN PARA EL FORMULARIO */}
@@ -1139,64 +1183,88 @@ export const CanchasScreen = () => {
         visible={modalSugerirVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalSugerirVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalSugerirVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={[styles.modalContenido, { maxHeight: '88%' }]}>
-            <Text style={styles.modalTitulo}>SUGERIR CAMBIOS DE CAMPO</Text>
-            <Text style={styles.modalSubtitulo}>
-              {canchaParaSugerir ? `Campo: ${canchaParaSugerir.nombre}` : 'Propuesta de actualización'}
-            </Text>
-
-            <View style={styles.bannerRevisionInfo}>
-              <MaterialCommunityIcons name="shield-check-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.txtBannerRevisionInfo}>
-                <Text style={{ fontWeight: 'bold' }}>Canal de Comandancia:</Text> Tus correcciones, indicaciones de accesos o nuevas fotografías serán revisadas por los administradores para actualizar la ficha oficial.
-              </Text>
-            </View>
-
-            <ScrollView style={{ marginBottom: 12 }}>
-              <Text style={styles.inputLabel}>DETALLE DE CAMBIOS SUGERIDOS (*):</Text>
-              <TextInput
-                style={[styles.inputModal, { minHeight: 90, textAlignVertical: 'top' }]}
-                value={textoPropuesta}
-                onChangeText={setTextoPropuesta}
-                placeholder="Indica qué datos corregir (coordenadas, horarios, precios, reglas del campo, accesos, etc.)..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={4}
-              />
-
-              <Text style={[styles.inputLabel, { marginTop: 14 }]}>FOTOS Y EVIDENCIAS NUEVAS:</Text>
-              <Text style={styles.inputAyuda}>
-                Puedes adjuntar fotografías actualizadas del campo con una breve descripción:
+            <Pressable onPress={Keyboard.dismiss} accessible={false}>
+              <Text style={styles.modalTitulo}>SUGERIR CAMBIOS DE CAMPO</Text>
+              <Text style={styles.modalSubtitulo}>
+                {canchaParaSugerir ? `Campo: ${canchaParaSugerir.nombre}` : 'Propuesta de actualización'}
               </Text>
 
-              {fotosSugerencia.map((foto, index) => (
-                <View key={index} style={styles.fotoItemCard}>
-                  <Image source={{ uri: foto.url }} style={styles.fotoMiniatura} />
-                  <View style={{ flex: 1, marginHorizontal: 8 }}>
-                    <TextInput
-                      style={styles.inputFotoDesc}
-                      value={foto.descripcion}
-                      onChangeText={(txt) => handleActualizarDescFotoSugerencia(index, txt)}
-                      placeholder="Descripción (ej: Nuevo acceso norte / Zona safe)"
-                      placeholderTextColor={colors.textMuted}
-                    />
+              <View style={styles.bannerRevisionInfo}>
+                <MaterialCommunityIcons name="shield-check-outline" size={18} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.txtBannerRevisionInfo}>
+                  <Text style={{ fontWeight: 'bold' }}>Canal de Comandancia:</Text> Tus correcciones, indicaciones de accesos o nuevas fotografías serán revisadas por los administradores para actualizar la ficha oficial.
+                </Text>
+              </View>
+            </Pressable>
+
+            <ScrollView
+              style={{ marginBottom: 12 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              showsVerticalScrollIndicator={false}
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                <Text style={styles.inputLabel}>DETALLE DE CAMBIOS SUGERIDOS (*):</Text>
+                <TextInput
+                  style={[styles.inputModal, { minHeight: 90, textAlignVertical: 'top' }]}
+                  value={textoPropuesta}
+                  onChangeText={setTextoPropuesta}
+                  placeholder="Indica qué datos corregir (coordenadas, horarios, precios, reglas del campo, accesos, etc.)..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={4}
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+
+                <Text style={[styles.inputLabel, { marginTop: 14 }]}>FOTOS Y EVIDENCIAS NUEVAS:</Text>
+                <Text style={styles.inputAyuda}>
+                  Puedes adjuntar fotografías actualizadas del campo con una breve descripción:
+                </Text>
+
+                {fotosSugerencia.map((foto, index) => (
+                  <View key={index} style={styles.fotoItemCard}>
+                    <Image source={{ uri: foto.url }} style={styles.fotoMiniatura} />
+                    <View style={{ flex: 1, marginHorizontal: 8 }}>
+                      <TextInput
+                        style={styles.inputFotoDesc}
+                        value={foto.descripcion}
+                        onChangeText={(txt) => handleActualizarDescFotoSugerencia(index, txt)}
+                        placeholder="Descripción (ej: Nuevo acceso norte / Zona safe)"
+                        placeholderTextColor={colors.textMuted}
+                        returnKeyType="done"
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.btnEliminarFoto}
+                      onPress={() => handleEliminarFotoSugerencia(index)}
+                    >
+                      <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    style={styles.btnEliminarFoto}
-                    onPress={() => handleEliminarFotoSugerencia(index)}
-                  >
-                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} />
-                  </TouchableOpacity>
-                </View>
-              ))}
+                ))}
 
-              <TouchableOpacity style={styles.btnAgregarFoto} onPress={handleAgregarFotoSugerencia}>
-                <MaterialCommunityIcons name="camera-plus" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.txtBtnAgregarFoto}>+ ADJUNTAR FOTO ACTUALIZADA</Text>
-              </TouchableOpacity>
+                <TouchableOpacity style={styles.btnAgregarFoto} onPress={handleAgregarFotoSugerencia}>
+                  <MaterialCommunityIcons name="camera-plus" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+                  <Text style={styles.txtBtnAgregarFoto}>+ ADJUNTAR FOTO ACTUALIZADA</Text>
+                </TouchableOpacity>
+              </Pressable>
             </ScrollView>
 
             {errorSugerenciaModal ? (
@@ -1210,6 +1278,7 @@ export const CanchasScreen = () => {
               <TouchableOpacity
                 style={styles.modalBtnSecundario}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorSugerenciaModal(null);
                   setModalSugerirVisible(false);
                 }}
@@ -1231,7 +1300,7 @@ export const CanchasScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal Táctico de Avisos y Notificaciones */}

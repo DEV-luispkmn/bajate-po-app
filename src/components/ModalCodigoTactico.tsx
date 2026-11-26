@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -41,6 +43,7 @@ export const ModalCodigoTactico: React.FC<ModalCodigoTacticoProps> = ({
   }, [visible]);
 
   const handleCerrar = () => {
+    Keyboard.dismiss();
     if (buscando) return;
     setCodigo('');
     setError(null);
@@ -48,6 +51,7 @@ export const ModalCodigoTactico: React.FC<ModalCodigoTacticoProps> = ({
   };
 
   const handleConfirmar = async () => {
+    Keyboard.dismiss();
     const codLimpio = codigo.trim().toUpperCase();
     if (!codLimpio) {
       setError('Por favor ingresa los 6 caracteres del código.');
@@ -81,15 +85,22 @@ export const ModalCodigoTactico: React.FC<ModalCodigoTacticoProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={Keyboard.dismiss}
+          accessible={false}
+        />
         <View style={styles.modalCard}>
-          <View style={styles.modalHeader}>
-            <MaterialCommunityIcons name="form-textbox-password" size={24} color={colors.primary} />
-            <Text style={styles.modalTitulo}>INGRESAR CÓDIGO TÁCTICO</Text>
-          </View>
+          <Pressable onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="form-textbox-password" size={24} color={colors.primary} />
+              <Text style={styles.modalTitulo}>INGRESAR CÓDIGO TÁCTICO</Text>
+            </View>
 
-          <Text style={styles.modalDescripcion}>
-            Ingresa el código alfanumérico de 6 caracteres generado para esta partida (ej: MAS123 o FUEB12).
-          </Text>
+            <Text style={styles.modalDescripcion}>
+              Ingresa el código alfanumérico de 6 caracteres generado para esta partida (ej: MAS123 o FUEB12).
+            </Text>
+          </Pressable>
 
           <TextInput
             style={styles.inputCodigo}

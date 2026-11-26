@@ -13,6 +13,10 @@ import {
   RefreshControl,
   Share,
   Linking,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
@@ -324,6 +328,7 @@ export const EquiposScreen = () => {
 
   // Crear Equipo Oficial
   const handleCrearEquipo = async () => {
+    Keyboard.dismiss();
     if (!crearNombre.trim()) {
       setErrorCrearModal('El nombre del equipo es obligatorio.');
       return;
@@ -432,6 +437,7 @@ export const EquiposScreen = () => {
   };
 
   const handleEnviarPostulacion = async () => {
+    Keyboard.dismiss();
     if (!equipoParaPostular) return;
     if (!postulacionContacto.trim()) {
       setErrorPostularModal('Ingresa tu número de WhatsApp o teléfono para que el Team Leader pueda contactarte.');
@@ -523,6 +529,7 @@ export const EquiposScreen = () => {
   };
 
   const handleConfirmarRechazo = async () => {
+    Keyboard.dismiss();
     if (!postulacionRechazo) return;
     try {
       setEnviandoRechazo(true);
@@ -586,6 +593,7 @@ export const EquiposScreen = () => {
 
   // Unirse por Código
   const handleUnirsePorCodigo = async () => {
+    Keyboard.dismiss();
     if (!codigoIngresado.trim()) {
       setErrorCodigoModal('Ingresa el código táctico de 6 caracteres.');
       return;
@@ -763,6 +771,7 @@ export const EquiposScreen = () => {
   };
 
   const handleGuardarEdicionEquipo = async () => {
+    Keyboard.dismiss();
     if (!editNombre.trim()) {
       setErrorEditarModal('El nombre del equipo no puede estar vacío.');
       return;
@@ -1071,6 +1080,8 @@ export const EquiposScreen = () => {
                 placeholderTextColor={colors.textMuted}
                 value={busqueda}
                 onChangeText={setBusqueda}
+                returnKeyType="search"
+                onSubmitEditing={Keyboard.dismiss}
               />
               {busqueda.length > 0 && (
                 <TouchableOpacity
@@ -1154,6 +1165,8 @@ export const EquiposScreen = () => {
               keyExtractor={(item) => String(item.id)}
               renderItem={renderItemEquipo}
               contentContainerStyle={styles.listContainer}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               refreshControl={
                 <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor={colors.primary} />
               }
@@ -1202,6 +1215,8 @@ export const EquiposScreen = () => {
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={styles.miEquipoContainer}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor={colors.primary} />
           }
@@ -1605,11 +1620,26 @@ export const EquiposScreen = () => {
         visible={modalCrearVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalCrearVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalCrearVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalCrearCard}>
-            <View style={styles.modalHeaderRow}>
+            <Pressable
+              style={styles.modalHeaderRow}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="shield-plus" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTituloPrincipal}>FUNDAR NUEVO EQUIPO</Text>
@@ -1617,77 +1647,93 @@ export const EquiposScreen = () => {
                   Serás registrado como Fundador y Team Leader (TL) oficial inicial del equipo.
                 </Text>
               </View>
-            </View>
+            </Pressable>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 450 }}>
-              <Text style={styles.inputLabel}>NOMBRE DEL EQUIPO *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="ej: Black Panthers Airsoft"
-                placeholderTextColor={colors.textMuted}
-                value={crearNombre}
-                onChangeText={setCrearNombre}
-              />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 450 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                <Text style={styles.inputLabel}>NOMBRE DEL EQUIPO *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="ej: Black Panthers Airsoft"
+                  placeholderTextColor={colors.textMuted}
+                  value={crearNombre}
+                  onChangeText={setCrearNombre}
+                  returnKeyType="done"
+                />
 
-              <Text style={styles.inputLabel}>LEMA O SLOGAN TÁCTICO (OPCIONAL)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="ej: Honor, Disciplina y Precisión"
-                placeholderTextColor={colors.textMuted}
-                value={crearLema}
-                onChangeText={setCrearLema}
-              />
+                <Text style={styles.inputLabel}>LEMA O SLOGAN TÁCTICO (OPCIONAL)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="ej: Honor, Disciplina y Precisión"
+                  placeholderTextColor={colors.textMuted}
+                  value={crearLema}
+                  onChangeText={setCrearLema}
+                  returnKeyType="done"
+                />
 
-              <Text style={styles.inputLabel}>REGIÓN DE OPERACIONES</Text>
-              <TouchableOpacity
-                style={styles.selectorRegionInput}
-                onPress={() => setModalRegionCrearVisible(true)}
-              >
-                <Text style={styles.selectorRegionInputTxt}>{crearRegion}</Text>
-                <MaterialCommunityIcons name="menu-down" size={20} color={colors.primary} />
-              </TouchableOpacity>
-
-              <Text style={styles.inputLabel}>CIUDAD O COMUNA BASE</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="ej: Santiago, Viña del Mar, Concepción..."
-                placeholderTextColor={colors.textMuted}
-                value={crearCiudad}
-                onChangeText={setCrearCiudad}
-              />
-
-              <Text style={styles.inputLabel}>LOGOTIPO / INSIGNIA DEL EQUIPO</Text>
-              <View style={styles.logoPickerRow}>
-                {crearLogoUrl ? (
-                  <Image source={{ uri: crearLogoUrl }} style={styles.logoPreview} />
-                ) : (
-                  <View style={styles.logoPreviewPlaceholder}>
-                    <MaterialCommunityIcons name="shield-outline" size={28} color={colors.textMuted} />
-                  </View>
-                )}
+                <Text style={styles.inputLabel}>REGIÓN DE OPERACIONES</Text>
                 <TouchableOpacity
-                  style={styles.btnElegirLogo}
-                  onPress={handleSeleccionarLogoGaleria}
+                  style={styles.selectorRegionInput}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setModalRegionCrearVisible(true);
+                  }}
                 >
-                  <MaterialCommunityIcons name="camera" size={16} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.txtBtnElegirLogo}>
-                    {crearLogoUrl ? 'CAMBIAR LOGO' : 'SUBIR DESDE MI TELÉFONO'}
-                  </Text>
+                  <Text style={styles.selectorRegionInputTxt}>{crearRegion}</Text>
+                  <MaterialCommunityIcons name="menu-down" size={20} color={colors.primary} />
                 </TouchableOpacity>
-              </View>
 
-              <Text style={styles.inputLabel}>RESEÑA HISTÓRICA / REGLAS (OPCIONAL)</Text>
-              <TextInput
-                style={[styles.textInput, { minHeight: 75, textAlignVertical: 'top' }]}
-                placeholder="Describe la visión de combate, requisitos de ingreso..."
-                placeholderTextColor={colors.textMuted}
-                value={crearDescripcion}
-                onChangeText={(t) => {
-                  if (errorCrearModal) setErrorCrearModal(null);
-                  setCrearDescripcion(t);
-                }}
-                multiline
-              />
+                <Text style={styles.inputLabel}>CIUDAD O COMUNA BASE</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="ej: Santiago, Viña del Mar, Concepción..."
+                  placeholderTextColor={colors.textMuted}
+                  value={crearCiudad}
+                  onChangeText={setCrearCiudad}
+                  returnKeyType="done"
+                />
+
+                <Text style={styles.inputLabel}>LOGOTIPO / INSIGNIA DEL EQUIPO</Text>
+                <View style={styles.logoPickerRow}>
+                  {crearLogoUrl ? (
+                    <Image source={{ uri: crearLogoUrl }} style={styles.logoPreview} />
+                  ) : (
+                    <View style={styles.logoPreviewPlaceholder}>
+                      <MaterialCommunityIcons name="shield-outline" size={28} color={colors.textMuted} />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.btnElegirLogo}
+                    onPress={handleSeleccionarLogoGaleria}
+                  >
+                    <MaterialCommunityIcons name="camera" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.txtBtnElegirLogo}>
+                      {crearLogoUrl ? 'CAMBIAR LOGO' : 'SUBIR DESDE MI TELÉFONO'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.inputLabel}>RESEÑA HISTÓRICA / REGLAS (OPCIONAL)</Text>
+                <TextInput
+                  style={[styles.textInput, { minHeight: 75, textAlignVertical: 'top' }]}
+                  placeholder="Describe la visión de combate, requisitos de ingreso..."
+                  placeholderTextColor={colors.textMuted}
+                  value={crearDescripcion}
+                  onChangeText={(t) => {
+                    if (errorCrearModal) setErrorCrearModal(null);
+                    setCrearDescripcion(t);
+                  }}
+                  multiline
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+              </Pressable>
             </ScrollView>
 
             {errorCrearModal ? (
@@ -1701,6 +1747,7 @@ export const EquiposScreen = () => {
               <TouchableOpacity
                 style={styles.btnCancelarModal}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorCrearModal(null);
                   setModalCrearVisible(false);
                 }}
@@ -1724,7 +1771,7 @@ export const EquiposScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* MODAL INGRESAR CÓDIGO DE INVITACIÓN */}
@@ -1732,11 +1779,26 @@ export const EquiposScreen = () => {
         visible={modalCodigoVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalCodigoVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalCodigoVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalCodigoCard}>
-            <View style={styles.modalHeaderRow}>
+            <Pressable
+              style={styles.modalHeaderRow}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="key" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTituloPrincipal}>CÓDIGO DE INVITACIÓN</Text>
@@ -1744,7 +1806,7 @@ export const EquiposScreen = () => {
                   Ingresa el código táctico de 6 caracteres proporcionado por el Team Leader (TL):
                 </Text>
               </View>
-            </View>
+            </Pressable>
 
             <TextInput
               style={styles.inputCodigoGrande}
@@ -1757,6 +1819,8 @@ export const EquiposScreen = () => {
               }}
               maxLength={10}
               autoCapitalize="characters"
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
 
             {errorCodigoModal ? (
@@ -1770,6 +1834,7 @@ export const EquiposScreen = () => {
               <TouchableOpacity
                 style={styles.btnCancelarModal}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorCodigoModal(null);
                   setModalCodigoVisible(false);
                 }}
@@ -1793,7 +1858,7 @@ export const EquiposScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* MODAL SELECTOR DE REGIÓN (FILTRO) */}
@@ -1913,11 +1978,26 @@ export const EquiposScreen = () => {
         visible={modalEditarEquipoVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalEditarEquipoVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalEditarEquipoVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalCrearCard}>
-            <View style={styles.modalHeaderRow}>
+            <Pressable
+              style={styles.modalHeaderRow}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="shield-edit" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTituloPrincipal}>MODIFICAR DATOS DEL EQUIPO</Text>
@@ -1925,77 +2005,93 @@ export const EquiposScreen = () => {
                   Actualiza el nombre, lema, ubicación, insignia o reseña de tu escuadrón.
                 </Text>
               </View>
-            </View>
+            </Pressable>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 450 }}>
-              <Text style={styles.inputLabel}>NOMBRE DEL EQUIPO *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="ej: Black Panthers Airsoft"
-                placeholderTextColor={colors.textMuted}
-                value={editNombre}
-                onChangeText={setEditNombre}
-              />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 450 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                <Text style={styles.inputLabel}>NOMBRE DEL EQUIPO *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="ej: Black Panthers Airsoft"
+                  placeholderTextColor={colors.textMuted}
+                  value={editNombre}
+                  onChangeText={setEditNombre}
+                  returnKeyType="done"
+                />
 
-              <Text style={styles.inputLabel}>LEMA O SLOGAN TÁCTICO (OPCIONAL)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="ej: Honor, Disciplina y Precisión"
-                placeholderTextColor={colors.textMuted}
-                value={editLema}
-                onChangeText={setEditLema}
-              />
+                <Text style={styles.inputLabel}>LEMA O SLOGAN TÁCTICO (OPCIONAL)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="ej: Honor, Disciplina y Precisión"
+                  placeholderTextColor={colors.textMuted}
+                  value={editLema}
+                  onChangeText={setEditLema}
+                  returnKeyType="done"
+                />
 
-              <Text style={styles.inputLabel}>REGIÓN DE OPERACIONES</Text>
-              <TouchableOpacity
-                style={styles.selectorRegionInput}
-                onPress={() => setModalRegionEditarVisible(true)}
-              >
-                <Text style={styles.selectorRegionInputTxt}>{editRegion}</Text>
-                <MaterialCommunityIcons name="menu-down" size={20} color={colors.primary} />
-              </TouchableOpacity>
-
-              <Text style={styles.inputLabel}>CIUDAD O COMUNA BASE</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="ej: Santiago, Viña del Mar, Concepción..."
-                placeholderTextColor={colors.textMuted}
-                value={editCiudad}
-                onChangeText={setEditCiudad}
-              />
-
-              <Text style={styles.inputLabel}>LOGOTIPO / INSIGNIA DEL EQUIPO</Text>
-              <View style={styles.logoPickerRow}>
-                {editLogoUrl ? (
-                  <Image source={{ uri: editLogoUrl }} style={styles.logoPreview} />
-                ) : (
-                  <View style={styles.logoPreviewPlaceholder}>
-                    <MaterialCommunityIcons name="shield-outline" size={28} color={colors.textMuted} />
-                  </View>
-                )}
+                <Text style={styles.inputLabel}>REGIÓN DE OPERACIONES</Text>
                 <TouchableOpacity
-                  style={styles.btnElegirLogo}
-                  onPress={handleSeleccionarLogoEditarGaleria}
+                  style={styles.selectorRegionInput}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setModalRegionEditarVisible(true);
+                  }}
                 >
-                  <MaterialCommunityIcons name="camera" size={16} color="#fff" style={{ marginRight: 6 }} />
-                  <Text style={styles.txtBtnElegirLogo}>
-                    {editLogoUrl ? 'CAMBIAR LOGO' : 'SUBIR DESDE MI TELÉFONO'}
-                  </Text>
+                  <Text style={styles.selectorRegionInputTxt}>{editRegion}</Text>
+                  <MaterialCommunityIcons name="menu-down" size={20} color={colors.primary} />
                 </TouchableOpacity>
-              </View>
 
-              <Text style={styles.inputLabel}>RESEÑA HISTÓRICA / REGLAS (OPCIONAL)</Text>
-              <TextInput
-                style={[styles.textInput, { minHeight: 75, textAlignVertical: 'top' }]}
-                placeholder="Describe la visión de combate, requisitos de ingreso..."
-                placeholderTextColor={colors.textMuted}
-                value={editDescripcion}
-                onChangeText={(t) => {
-                  if (errorEditarModal) setErrorEditarModal(null);
-                  setEditDescripcion(t);
-                }}
-                multiline
-              />
+                <Text style={styles.inputLabel}>CIUDAD O COMUNA BASE</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="ej: Santiago, Viña del Mar, Concepción..."
+                  placeholderTextColor={colors.textMuted}
+                  value={editCiudad}
+                  onChangeText={setEditCiudad}
+                  returnKeyType="done"
+                />
+
+                <Text style={styles.inputLabel}>LOGOTIPO / INSIGNIA DEL EQUIPO</Text>
+                <View style={styles.logoPickerRow}>
+                  {editLogoUrl ? (
+                    <Image source={{ uri: editLogoUrl }} style={styles.logoPreview} />
+                  ) : (
+                    <View style={styles.logoPreviewPlaceholder}>
+                      <MaterialCommunityIcons name="shield-outline" size={28} color={colors.textMuted} />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.btnElegirLogo}
+                    onPress={handleSeleccionarLogoEditarGaleria}
+                  >
+                    <MaterialCommunityIcons name="camera" size={16} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={styles.txtBtnElegirLogo}>
+                      {editLogoUrl ? 'CAMBIAR LOGO' : 'SUBIR DESDE MI TELÉFONO'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.inputLabel}>RESEÑA HISTÓRICA / REGLAS (OPCIONAL)</Text>
+                <TextInput
+                  style={[styles.textInput, { minHeight: 75, textAlignVertical: 'top' }]}
+                  placeholder="Describe la visión de combate, requisitos de ingreso..."
+                  placeholderTextColor={colors.textMuted}
+                  value={editDescripcion}
+                  onChangeText={(t) => {
+                    if (errorEditarModal) setErrorEditarModal(null);
+                    setEditDescripcion(t);
+                  }}
+                  multiline
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+              </Pressable>
             </ScrollView>
 
             {errorEditarModal ? (
@@ -2009,6 +2105,7 @@ export const EquiposScreen = () => {
               <TouchableOpacity
                 style={styles.btnCancelarModal}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorEditarModal(null);
                   setModalEditarEquipoVisible(false);
                 }}
@@ -2032,7 +2129,7 @@ export const EquiposScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* MODAL SELECTOR DE REGIÓN (MODIFICAR EQUIPO) */}
@@ -2084,11 +2181,26 @@ export const EquiposScreen = () => {
         visible={modalPostularVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalPostularVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalPostularVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalCrearCard}>
-            <View style={styles.modalHeaderRow}>
+            <Pressable
+              style={styles.modalHeaderRow}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTituloPrincipal}>POSTULAR AL EQUIPO</Text>
@@ -2096,35 +2208,47 @@ export const EquiposScreen = () => {
                   {equipoParaPostular ? equipoParaPostular.nombre : 'Equipo'}
                 </Text>
               </View>
-            </View>
+            </Pressable>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
-              <View style={styles.infoPostulacionBanner}>
-                <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} style={{ marginRight: 8, marginTop: 2 }} />
-                <Text style={styles.txtInfoPostulacionBanner}>
-                  El Team Leader (TL) revisará tus antecedentes y se pondrá en contacto contigo por WhatsApp para coordinar tu incorporación o prueba de juego.
-                </Text>
-              </View>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 420 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                <View style={styles.infoPostulacionBanner}>
+                  <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} style={{ marginRight: 8, marginTop: 2 }} />
+                  <Text style={styles.txtInfoPostulacionBanner}>
+                    El Team Leader (TL) revisará tus antecedentes y se pondrá en contacto contigo por WhatsApp para coordinar tu incorporación o prueba de juego.
+                  </Text>
+                </View>
 
-              <Text style={styles.inputLabel}>TU WHATSAPP O TELÉFONO DE CONTACTO *</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="ej: +56 9 1234 5678"
-                placeholderTextColor={colors.textMuted}
-                value={postulacionContacto}
-                onChangeText={setPostulacionContacto}
-                keyboardType="phone-pad"
-              />
+                <Text style={styles.inputLabel}>TU WHATSAPP O TELÉFONO DE CONTACTO *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="ej: +56 9 1234 5678"
+                  placeholderTextColor={colors.textMuted}
+                  value={postulacionContacto}
+                  onChangeText={setPostulacionContacto}
+                  keyboardType="phone-pad"
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
 
-              <Text style={styles.inputLabel}>MENSAJE / PRESENTACIÓN TÁCTICA (OPCIONAL)</Text>
-              <TextInput
-                style={[styles.textInput, { minHeight: 90, textAlignVertical: 'top' }]}
-                placeholder="Cuéntale al TL sobre tu experiencia en airsoft, réplicas, rol favorito, disponibilidad de fin de semana..."
-                placeholderTextColor={colors.textMuted}
-                value={postulacionMensaje}
-                onChangeText={setPostulacionMensaje}
-                multiline
-              />
+                <Text style={styles.inputLabel}>MENSAJE / PRESENTACIÓN TÁCTICA (OPCIONAL)</Text>
+                <TextInput
+                  style={[styles.textInput, { minHeight: 90, textAlignVertical: 'top' }]}
+                  placeholder="Cuéntale al TL sobre tu experiencia en airsoft, réplicas, rol favorito, disponibilidad de fin de semana..."
+                  placeholderTextColor={colors.textMuted}
+                  value={postulacionMensaje}
+                  onChangeText={setPostulacionMensaje}
+                  multiline
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+              </Pressable>
             </ScrollView>
 
             {errorPostularModal ? (
@@ -2138,6 +2262,7 @@ export const EquiposScreen = () => {
               <TouchableOpacity
                 style={styles.btnCancelarModal}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorPostularModal(null);
                   setModalPostularVisible(false);
                 }}
@@ -2161,18 +2286,33 @@ export const EquiposScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
       {/* MODAL RECHAZAR POSTULACIÓN CON MOTIVO */}
       <Modal
         visible={modalRechazoVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalRechazoVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalRechazoVisible(false);
+        }}
       >
-        <View style={styles.modalOverlayFondo}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlayFondo}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalCardRechazo}>
-            <View style={styles.modalHeaderRowRechazo}>
+            <Pressable
+              style={styles.modalHeaderRowRechazo}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="close-octagon" size={24} color={colors.danger} />
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.modalTituloRechazo}>DECLINAR POSTULACIÓN</Text>
@@ -2180,7 +2320,7 @@ export const EquiposScreen = () => {
                   Indica el motivo para notificar a {postulacionRechazo?.alias ? `"${postulacionRechazo.alias}"` : 'este operador'}:
                 </Text>
               </View>
-            </View>
+            </Pressable>
 
             {/* Chips Rápidos de Motivo */}
             <Text style={styles.labelMotivosRapidos}>MOTIVOS COMUNES (TOCA PARA AUTOCOMPLETAR):</Text>
@@ -2197,7 +2337,10 @@ export const EquiposScreen = () => {
                     styles.chipMotivo,
                     motivoRechazoTexto === chip && styles.chipMotivoActivo,
                   ]}
-                  onPress={() => setMotivoRechazoTexto(chip)}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setMotivoRechazoTexto(chip);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text
@@ -2221,6 +2364,9 @@ export const EquiposScreen = () => {
               onChangeText={setMotivoRechazoTexto}
               multiline
               numberOfLines={3}
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={Keyboard.dismiss}
             />
 
             <View style={styles.avisoNotifRechazo}>
@@ -2233,7 +2379,10 @@ export const EquiposScreen = () => {
             <View style={styles.modalBotonesRow}>
               <TouchableOpacity
                 style={styles.btnCancelarModal}
-                onPress={() => setModalRechazoVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalRechazoVisible(false);
+                }}
                 disabled={enviandoRechazo}
               >
                 <Text style={styles.txtBtnCancelarModal}>CANCELAR</Text>
@@ -2255,7 +2404,7 @@ export const EquiposScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal Táctico de Notificaciones */}

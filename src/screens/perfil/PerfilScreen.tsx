@@ -10,6 +10,10 @@ import {
   RefreshControl,
   Modal,
   TextInput,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -251,6 +255,7 @@ export const PerfilScreen = () => {
   };
 
   const handleActualizarAvatarManual = async () => {
+    Keyboard.dismiss();
     if (!nuevoAvatar.trim()) return;
     await guardarAvatarEnBackend(nuevoAvatar.trim());
     setModalFotoVisible(false);
@@ -287,6 +292,7 @@ export const PerfilScreen = () => {
   };
 
   const handleGuardarFichaCompleta = async () => {
+    Keyboard.dismiss();
     if (!editAlias.trim()) {
       setErrorFichaModal('El callsign o alias táctico no puede estar vacío.');
       return;
@@ -732,170 +738,200 @@ export const PerfilScreen = () => {
         visible={modalEditarFichaVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalEditarFichaVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalEditarFichaVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={[styles.modalContent, { maxHeight: '88%' }]}>
-            <Text style={styles.modalTitulo}>MODIFICAR FICHA DE OPERADOR</Text>
-            <Text style={styles.modalSubtitulo}>
-              Actualiza tu identidad, ubicación y especialidades en el radar táctico:
-            </Text>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 12 }}>
-              {/* Callsign / Nick */}
-              <Text style={styles.inputModalLabel}>CALLSIGN / NICK DE COMBATE (*):</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="ej: DeltaBravo99"
-                placeholderTextColor={colors.textMuted}
-                value={editAlias}
-                onChangeText={(t) => {
-                  if (errorFichaModal) setErrorFichaModal(null);
-                  setEditAlias(t);
-                }}
-                autoCapitalize="none"
-              />
-
-              {/* Región de Chile */}
-              <Text style={styles.inputModalLabel}>REGIÓN DE COMBATE (*):</Text>
-              <TouchableOpacity
-                style={styles.dropdownModal}
-                onPress={() => setModalSelectorRegionVisible(true)}
-              >
-                <Text style={styles.dropdownModalTxt}>{editRegion}</Text>
-                <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-
-              {/* Ciudad / Comuna */}
-              <Text style={styles.inputModalLabel}>CIUDAD / COMUNA:</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="ej: Lampa / Viña del Mar / Concepción"
-                placeholderTextColor={colors.textMuted}
-                value={editCiudad}
-                onChangeText={setEditCiudad}
-              />
-
-              {/* Apodo Táctico / Título de Cancha */}
-              <Text style={styles.inputModalLabel}>TÍTULOS DE HONOR POR LOGRO:</Text>
-              <Text style={styles.inputModalAyuda}>
-                Los títulos tácticos oficiales se desbloquean combatiendo. También puedes ingresar tu propio apodo personalizado abajo:
+            <Pressable onPress={Keyboard.dismiss} accessible={false}>
+              <Text style={styles.modalTitulo}>MODIFICAR FICHA DE OPERADOR</Text>
+              <Text style={styles.modalSubtitulo}>
+                Actualiza tu identidad, ubicación y especialidades en el radar táctico:
               </Text>
-              <View style={styles.modalApodosGrid}>
-                {APODOS_TACTICOS_SUGERIDOS.map((item) => {
-                  const desbloqueado = esApodoDesbloqueado(item, perfil);
-                  const seleccionado =
-                    editRango.trim().toLowerCase() === item.id.toLowerCase() ||
-                    editRango.trim().toLowerCase() === item.label.toLowerCase();
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[
-                        styles.modalApodoChip,
-                        seleccionado && styles.modalApodoChipActivo,
-                        !desbloqueado && styles.modalApodoChipBloqueado,
-                      ]}
-                      onPress={() => {
-                        if (!desbloqueado) {
-                          setAvisoTactico({
-                            visible: true,
-                            titulo: 'TÍTULO BLOQUEADO',
-                            mensaje: `"${item.label}" es un título táctico oficial que se desbloquea por mérito en combate:\n\nRequisito: ${item.desbloqueadoPor}.\n\n¡Sigue combatiendo o escribe tu apodo personalizado abajo!`,
-                            tipo: 'advertencia',
-                            icono: 'lock-outline',
-                          });
-                          return;
-                        }
-                        setEditRango(item.id);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialCommunityIcons
-                        name={desbloqueado ? item.icon : 'lock-outline'}
-                        size={14}
-                        color={
-                          seleccionado
-                            ? '#fff'
-                            : desbloqueado
-                            ? colors.textMuted
-                            : 'rgba(255,255,255,0.3)'
-                        }
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text
+            </Pressable>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ marginBottom: 12 }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
+                {/* Callsign / Nick */}
+                <Text style={styles.inputModalLabel}>CALLSIGN / NICK DE COMBATE (*):</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="ej: DeltaBravo99"
+                  placeholderTextColor={colors.textMuted}
+                  value={editAlias}
+                  onChangeText={(t) => {
+                    if (errorFichaModal) setErrorFichaModal(null);
+                    setEditAlias(t);
+                  }}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+
+                {/* Región de Chile */}
+                <Text style={styles.inputModalLabel}>REGIÓN DE COMBATE (*):</Text>
+                <TouchableOpacity
+                  style={styles.dropdownModal}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setModalSelectorRegionVisible(true);
+                  }}
+                >
+                  <Text style={styles.dropdownModalTxt}>{editRegion}</Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+
+                {/* Ciudad / Comuna */}
+                <Text style={styles.inputModalLabel}>CIUDAD / COMUNA:</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="ej: Lampa / Viña del Mar / Concepción"
+                  placeholderTextColor={colors.textMuted}
+                  value={editCiudad}
+                  onChangeText={setEditCiudad}
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
+
+                {/* Apodo Táctico / Título de Cancha */}
+                <Text style={styles.inputModalLabel}>TÍTULOS DE HONOR POR LOGRO:</Text>
+                <Text style={styles.inputModalAyuda}>
+                  Los títulos tácticos oficiales se desbloquean combatiendo. También puedes ingresar tu propio apodo personalizado abajo:
+                </Text>
+                <View style={styles.modalApodosGrid}>
+                  {APODOS_TACTICOS_SUGERIDOS.map((item) => {
+                    const desbloqueado = esApodoDesbloqueado(item, perfil);
+                    const seleccionado =
+                      editRango.trim().toLowerCase() === item.id.toLowerCase() ||
+                      editRango.trim().toLowerCase() === item.label.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
                         style={[
-                          styles.modalApodoTxt,
-                          seleccionado && styles.modalApodoTxtActivo,
-                          !desbloqueado && styles.modalApodoTxtBloqueado,
+                          styles.modalApodoChip,
+                          seleccionado && styles.modalApodoChipActivo,
+                          !desbloqueado && styles.modalApodoChipBloqueado,
                         ]}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          if (!desbloqueado) {
+                            setAvisoTactico({
+                              visible: true,
+                              titulo: 'TÍTULO BLOQUEADO',
+                              mensaje: `"${item.label}" es un título táctico oficial que se desbloquea por mérito en combate:\n\nRequisito: ${item.desbloqueadoPor}.\n\n¡Sigue combatiendo o escribe tu apodo personalizado abajo!`,
+                              tipo: 'advertencia',
+                              icono: 'lock-outline',
+                            });
+                            return;
+                          }
+                          setEditRango(item.id);
+                        }}
+                        activeOpacity={0.7}
                       >
-                        {item.label}
-                      </Text>
-                      {seleccionado && (
                         <MaterialCommunityIcons
-                          name="check"
+                          name={desbloqueado ? item.icon : 'lock-outline'}
                           size={14}
-                          color="#fff"
-                          style={{ marginLeft: 3 }}
+                          color={
+                            seleccionado
+                              ? '#fff'
+                              : desbloqueado
+                              ? colors.textMuted
+                              : 'rgba(255,255,255,0.3)'
+                          }
+                          style={{ marginRight: 4 }}
                         />
-                      )}
-                      {!desbloqueado && (
-                        <MaterialCommunityIcons
-                          name="lock"
-                          size={11}
-                          color="rgba(255,255,255,0.35)"
-                          style={{ marginLeft: 3 }}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        <Text
+                          style={[
+                            styles.modalApodoTxt,
+                            seleccionado && styles.modalApodoTxtActivo,
+                            !desbloqueado && styles.modalApodoTxtBloqueado,
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                        {seleccionado && (
+                          <MaterialCommunityIcons
+                            name="check"
+                            size={14}
+                            color="#fff"
+                            style={{ marginLeft: 3 }}
+                          />
+                        )}
+                        {!desbloqueado && (
+                          <MaterialCommunityIcons
+                            name="lock"
+                            size={11}
+                            color="rgba(255,255,255,0.35)"
+                            style={{ marginLeft: 3 }}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
-              <Text style={[styles.inputModalLabel, { marginTop: 6 }]}>
-                O ESCRIBE UN APODO PERSONALIZADO:
-              </Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="ej: Jedi / Lobo Gris / Halcón"
-                placeholderTextColor={colors.textMuted}
-                value={editRango}
-                onChangeText={setEditRango}
-              />
+                <Text style={[styles.inputModalLabel, { marginTop: 6 }]}>
+                  O ESCRIBE UN APODO PERSONALIZADO:
+                </Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="ej: Jedi / Lobo Gris / Halcón"
+                  placeholderTextColor={colors.textMuted}
+                  value={editRango}
+                  onChangeText={setEditRango}
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
 
-              {/* Roles / Especialidades */}
-              <Text style={styles.inputModalLabel}>ESPECIALIDADES TÁCTICAS QUE DOMINAS:</Text>
-              <View style={styles.modalRolesGrid}>
-                {TODOS_LOS_ROLES.map((rolId) => {
-                  const activo = editRoles.includes(rolId);
-                  const info = ROLES_INFO[rolId];
-                  return (
-                    <TouchableOpacity
-                      key={rolId}
-                      style={[styles.modalRolChip, activo && styles.modalRolChipActivo]}
-                      onPress={() => toggleEditRol(rolId)}
-                    >
-                      <MaterialCommunityIcons
-                        name={info.icon}
-                        size={18}
-                        color={activo ? '#fff' : colors.textMuted}
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text style={[styles.modalRolTxt, activo && styles.modalRolTxtActivo]}>
-                        {info.label}
-                      </Text>
-                      {activo && (
+                {/* Roles / Especialidades */}
+                <Text style={styles.inputModalLabel}>ESPECIALIDADES TÁCTICAS QUE DOMINAS:</Text>
+                <View style={styles.modalRolesGrid}>
+                  {TODOS_LOS_ROLES.map((rolId) => {
+                    const activo = editRoles.includes(rolId);
+                    const info = ROLES_INFO[rolId];
+                    return (
+                      <TouchableOpacity
+                        key={rolId}
+                        style={[styles.modalRolChip, activo && styles.modalRolChipActivo]}
+                        onPress={() => toggleEditRol(rolId)}
+                      >
                         <MaterialCommunityIcons
-                          name="check"
-                          size={14}
-                          color="#fff"
-                          style={{ marginLeft: 3 }}
+                          name={info.icon}
+                          size={18}
+                          color={activo ? '#fff' : colors.textMuted}
+                          style={{ marginRight: 6 }}
                         />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                        <Text style={[styles.modalRolTxt, activo && styles.modalRolTxtActivo]}>
+                          {info.label}
+                        </Text>
+                        {activo && (
+                          <MaterialCommunityIcons
+                            name="check"
+                            size={14}
+                            color="#fff"
+                            style={{ marginLeft: 3 }}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </Pressable>
             </ScrollView>
 
             {errorFichaModal ? (
@@ -909,6 +945,7 @@ export const PerfilScreen = () => {
               <TouchableOpacity
                 style={styles.modalBtnCancelar}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorFichaModal(null);
                   setModalEditarFichaVisible(false);
                 }}
@@ -933,7 +970,7 @@ export const PerfilScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* MODAL SELECTOR DE REGIÓN */}
@@ -992,14 +1029,27 @@ export const PerfilScreen = () => {
         visible={modalFotoVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalFotoVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalFotoVisible(false);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitulo}>ACTUALIZAR FOTO DE OPERADOR</Text>
-            <Text style={styles.modalSubtitulo}>
-              Elige cómo deseas actualizar tu avatar táctico:
-            </Text>
+            <Pressable onPress={Keyboard.dismiss} accessible={false}>
+              <Text style={styles.modalTitulo}>ACTUALIZAR FOTO DE OPERADOR</Text>
+              <Text style={styles.modalSubtitulo}>
+                Elige cómo deseas actualizar tu avatar táctico:
+              </Text>
+            </Pressable>
 
             {/* Acciones Rápidas: Cámara y Galería */}
             <View style={styles.modalAvatarOpcionesRow}>
@@ -1036,12 +1086,17 @@ export const PerfilScreen = () => {
               onChangeText={setNuevoAvatar}
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
 
             <View style={styles.modalBotones}>
               <TouchableOpacity
                 style={styles.modalBtnCancelar}
-                onPress={() => setModalFotoVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalFotoVisible(false);
+                }}
               >
                 <Text style={styles.modalTxtCancelar}>CANCELAR</Text>
               </TouchableOpacity>
@@ -1059,7 +1114,7 @@ export const PerfilScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal Táctico de Cierre de Sesión */}

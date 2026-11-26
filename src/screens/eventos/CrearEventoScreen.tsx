@@ -10,6 +10,10 @@ import {
   Modal,
   Linking,
   Switch,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -444,7 +448,17 @@ export const CrearEventoScreen = () => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={{ flex: 1 }}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <Pressable onPress={Keyboard.dismiss} accessible={false}>
       {/* Indicador de Pasos Superior */}
       <View style={styles.pasosHeader}>
         <View style={[styles.pasoItem, paso === 1 && styles.pasoItemActivo]}>
@@ -956,6 +970,9 @@ export const CrearEventoScreen = () => {
               placeholderTextColor={colors.textMuted}
               multiline
               numberOfLines={4}
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={Keyboard.dismiss}
             />
           </View>
 
@@ -1691,6 +1708,7 @@ export const CrearEventoScreen = () => {
           </View>
         </View>
       )}
+        </Pressable>
 
       {/* Modal para selección de Región */}
       <Modal
@@ -1768,7 +1786,8 @@ export const CrearEventoScreen = () => {
           }
         }}
       />
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

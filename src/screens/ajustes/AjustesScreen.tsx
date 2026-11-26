@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -108,6 +110,7 @@ export const AjustesScreen = () => {
   };
 
   const handleEnviarTicket = async () => {
+    Keyboard.dismiss();
     if (!tituloTicket.trim() || !mensajeTicket.trim()) {
       setErrorTicketModal('Por favor ingresa un asunto y el detalle de tu ticket.');
       return;
@@ -277,20 +280,32 @@ export const AjustesScreen = () => {
         visible={modalTicketVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalTicketVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalTicketVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
+            <Pressable
+              style={styles.modalHeader}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="lightbulb-on-outline" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTitulo}>BUZÓN DE ADMINISTRACIÓN</Text>
                 <Text style={styles.modalSubtitulo}>Envía tu idea, reporte o solicitud de reactivación (equipo o cancha).</Text>
               </View>
-            </View>
+            </Pressable>
 
             {/* Selector de Tipo */}
             <Text style={styles.inputLabel}>TIPO DE TRANSMISIÓN:</Text>
@@ -301,7 +316,10 @@ export const AjustesScreen = () => {
                   <TouchableOpacity
                     key={item.tipo}
                     style={[styles.chipTipo, activo && styles.chipTipoActivo]}
-                    onPress={() => setTipoSeleccionado(item.tipo)}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setTipoSeleccionado(item.tipo);
+                    }}
                   >
                     <MaterialCommunityIcons
                       name={item.icon}
@@ -328,6 +346,7 @@ export const AjustesScreen = () => {
                 setTituloTicket(t);
               }}
               maxLength={150}
+              returnKeyType="done"
             />
 
             <Text style={styles.inputLabel}>MENSAJE / DETALLES:</Text>
@@ -343,6 +362,9 @@ export const AjustesScreen = () => {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
+              onSubmitEditing={Keyboard.dismiss}
             />
 
             {errorTicketModal ? (
@@ -356,6 +378,7 @@ export const AjustesScreen = () => {
               <TouchableOpacity
                 style={styles.btnCancelarModal}
                 onPress={() => {
+                  Keyboard.dismiss();
                   setErrorTicketModal(null);
                   setModalTicketVisible(false);
                 }}

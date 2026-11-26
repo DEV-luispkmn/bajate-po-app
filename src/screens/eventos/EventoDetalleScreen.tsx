@@ -15,6 +15,8 @@ import {
   Switch,
   RefreshControl,
   Linking,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -772,6 +774,7 @@ export const EventoDetalleScreen = () => {
   };
 
   const handleGuardarModificacion = async () => {
+    Keyboard.dismiss();
     if (!editTitulo.trim()) {
       mostrarAvisoTactico('ATENCIÓN', 'El título de la operación es obligatorio.', 'advertencia', 'format-title');
       return;
@@ -872,6 +875,7 @@ export const EventoDetalleScreen = () => {
   };
 
   const handleConfirmarCancelacion = async () => {
+    Keyboard.dismiss();
     const motivoFinal =
       motivoSeleccionado === 'Otro motivo...'
         ? motivoOtroTexto.trim() || 'Otro motivo'
@@ -916,6 +920,7 @@ export const EventoDetalleScreen = () => {
 
   // Habilitar / Crear Escuadras en el Bando
   const handleGenerarEscuadras = async () => {
+    Keyboard.dismiss();
     if (!bandoSeleccionadoParaEscuadras) return;
     if (detalle?.evento?.inscripcionesAbiertas !== false) {
       mostrarAvisoTactico(
@@ -1081,6 +1086,7 @@ export const EventoDetalleScreen = () => {
 
   // Registrar Réplica en Crono
   const handleGuardarCrono = async () => {
+    Keyboard.dismiss();
     if (!cronoJugadorId) {
       mostrarAvisoTactico('ATENCIÓN', 'Por favor selecciona el operador a cronar.', 'advertencia', 'account-search');
       return;
@@ -1152,6 +1158,7 @@ export const EventoDetalleScreen = () => {
   };
 
   const handleCrearMision = async () => {
+    Keyboard.dismiss();
     if (!misionTitulo.trim()) {
       mostrarAvisoTactico('ATENCIÓN', 'Ingresa el nombre o título de la misión.', 'advertencia', 'pencil');
       return;
@@ -1398,6 +1405,8 @@ export const EventoDetalleScreen = () => {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       refreshControl={
         <RefreshControl
           refreshing={refrescando}
@@ -3171,6 +3180,7 @@ export const EventoDetalleScreen = () => {
         transparent
         animationType="slide"
         onRequestClose={() => {
+          Keyboard.dismiss();
           if (!alistandoseMilsim) setModalAlistamientoMilsimVisible(false);
         }}
       >
@@ -3178,21 +3188,33 @@ export const EventoDetalleScreen = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalContentAlistamiento}>
             {/* Header del Modal */}
-            <View style={styles.headerAlistamiento}>
+            <Pressable
+              style={styles.headerAlistamiento}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <MaterialCommunityIcons name="shield-check" size={20} color={colors.primary} style={{ marginRight: 6 }} />
                 <Text style={styles.tituloAlistamiento}>PROTOCOLO DE ALISTAMIENTO</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setModalAlistamientoMilsimVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalAlistamientoMilsimVisible(false);
+                }}
                 disabled={alistandoseMilsim}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <MaterialCommunityIcons name="close" size={20} color={colors.textMuted} />
               </TouchableOpacity>
-            </View>
+            </Pressable>
 
             {/* Stepper horizontal (1: Reglas, 2: Réplicas, 3: Facción, 4: Revisión) */}
             <View style={styles.stepperContainer}>
@@ -3241,7 +3263,12 @@ export const EventoDetalleScreen = () => {
             </View>
 
             {/* CONTENIDO SEGÚN EL PASO ACTUAL */}
-            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={{ maxHeight: 420 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
               {/* PASO 1: REGLAS Y CONDICIONES TACSOP */}
               {pasoAlistamiento === 1 && (
                 <View style={styles.cuerpoPasoAlistamiento}>
@@ -3638,17 +3665,33 @@ export const EventoDetalleScreen = () => {
         visible={modalEditarVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalEditarVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalEditarVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={[styles.modalContent, { maxHeight: '88%' }]}>
-            <Text style={styles.modalTitulo}>MODIFICAR OPERACIÓN</Text>
-            <Text style={styles.modalSubtitulo}>Actualiza los parámetros tácticos y reglas:</Text>
+            <Pressable style={{ width: '100%' }} onPress={Keyboard.dismiss} accessible={false}>
+              <Text style={styles.modalTitulo}>MODIFICAR OPERACIÓN</Text>
+              <Text style={styles.modalSubtitulo}>Actualiza los parámetros tácticos y reglas:</Text>
+            </Pressable>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ width: '100%' }}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ width: '100%' }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
               <Text style={styles.inputModalLabel}>TÍTULO (*):</Text>
               <TextInput
                 style={styles.inputModal}
@@ -3656,6 +3699,7 @@ export const EventoDetalleScreen = () => {
                 onChangeText={setEditTitulo}
                 placeholder="Título del evento"
                 placeholderTextColor={colors.textMuted}
+                returnKeyType="done"
               />
 
               <Text style={styles.inputModalLabel}>BRIEFING / DESCRIPCIÓN:</Text>
@@ -3667,6 +3711,9 @@ export const EventoDetalleScreen = () => {
                 placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                onSubmitEditing={Keyboard.dismiss}
               />
 
               <TacticalDateTimePicker
@@ -3754,12 +3801,16 @@ export const EventoDetalleScreen = () => {
                   ))}
                 </View>
               )}
+              </Pressable>
             </ScrollView>
 
             <View style={[styles.modalBotones, { marginTop: 12 }]}>
               <TouchableOpacity
                 style={styles.modalBotonCancelar}
-                onPress={() => setModalEditarVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalEditarVisible(false);
+                }}
               >
                 <Text style={styles.modalTextoCancelar}>VOLVER</Text>
               </TouchableOpacity>
@@ -3784,20 +3835,30 @@ export const EventoDetalleScreen = () => {
         visible={modalCancelarVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalCancelarVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalCancelarVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalContent}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              <MaterialCommunityIcons name="cancel" size={20} color={colors.danger} style={{ marginRight: 6 }} />
-              <Text style={[styles.modalTitulo, { color: colors.danger, marginBottom: 0 }]}>CANCELAR OPERACIÓN</Text>
-            </View>
-            <Text style={styles.modalSubtitulo}>
-              Indica el motivo de la cancelación. Se notificará a los participantes:
-            </Text>
+            <Pressable style={{ width: '100%' }} onPress={Keyboard.dismiss} accessible={false}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <MaterialCommunityIcons name="cancel" size={20} color={colors.danger} style={{ marginRight: 6 }} />
+                <Text style={[styles.modalTitulo, { color: colors.danger, marginBottom: 0 }]}>CANCELAR OPERACIÓN</Text>
+              </View>
+              <Text style={styles.modalSubtitulo}>
+                Indica el motivo de la cancelación. Se notificará a los participantes:
+              </Text>
+            </Pressable>
 
             {MOTIVOS_CANCELACION.map((motivo) => {
               const seleccionado = motivoSeleccionado === motivo;
@@ -3805,7 +3866,10 @@ export const EventoDetalleScreen = () => {
                 <TouchableOpacity
                   key={motivo}
                   style={[styles.itemMotivoChip, seleccionado && styles.itemMotivoChipActivo]}
-                  onPress={() => setMotivoSeleccionado(motivo)}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setMotivoSeleccionado(motivo);
+                  }}
                 >
                   <MaterialCommunityIcons
                     name={seleccionado ? 'radiobox-marked' : 'radiobox-blank'}
@@ -3829,13 +3893,19 @@ export const EventoDetalleScreen = () => {
                 placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={2}
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                onSubmitEditing={Keyboard.dismiss}
               />
             )}
 
             <View style={styles.modalBotones}>
               <TouchableOpacity
                 style={styles.modalBotonCancelar}
-                onPress={() => setModalCancelarVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalCancelarVisible(false);
+                }}
               >
                 <Text style={styles.modalTextoCancelar}>VOLVER</Text>
               </TouchableOpacity>
@@ -4054,14 +4124,26 @@ export const EventoDetalleScreen = () => {
         visible={modalEscuadrasVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalEscuadrasVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalEscuadrasVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={styles.modalContent}>
-            <View style={styles.modalHeaderQr}>
+            <Pressable
+              style={styles.modalHeaderQr}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="shield-account" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTitulo}>HABILITAR ESCUADRAS</Text>
@@ -4069,7 +4151,7 @@ export const EventoDetalleScreen = () => {
                   Facción: {bandoSeleccionadoParaEscuadras?.nombre}
                 </Text>
               </View>
-            </View>
+            </Pressable>
 
             {/* Pestañas de Modo: Rápido (X Escuadras) vs Específica */}
             <View style={styles.qrTabsContainer}>
@@ -4152,7 +4234,10 @@ export const EventoDetalleScreen = () => {
             <View style={styles.modalBotones}>
               <TouchableOpacity
                 style={styles.modalBotonCancelar}
-                onPress={() => setModalEscuadrasVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalEscuadrasVisible(false);
+                }}
               >
                 <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
               </TouchableOpacity>
@@ -4534,22 +4619,40 @@ export const EventoDetalleScreen = () => {
         visible={modalCronoVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalCronoVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalCronoVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={[styles.modalContent, { maxHeight: '90%' }]}>
-            <View style={styles.modalHeaderQr}>
+            <Pressable
+              style={styles.modalHeaderQr}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="speedometer" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTitulo}>CRONÓGRAFO OFICIAL (STAFF)</Text>
                 <Text style={styles.modalSubtitulo}>Registra y homologa réplicas en terreno</Text>
               </View>
-            </View>
+            </Pressable>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ marginVertical: 6 }}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ marginVertical: 6, width: '100%' }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
               {/* Selección del Operador */}
               <Text style={styles.inputModalLabel}>SELECCIONA EL OPERADOR:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
@@ -4686,12 +4789,16 @@ export const EventoDetalleScreen = () => {
                   trackColor={{ false: colors.danger, true: colors.primary }}
                 />
               </View>
+              </Pressable>
             </ScrollView>
 
             <View style={styles.modalBotones}>
               <TouchableOpacity
                 style={styles.modalBotonCancelar}
-                onPress={() => setModalCronoVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalCronoVisible(false);
+                }}
               >
                 <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
               </TouchableOpacity>
@@ -4800,29 +4907,50 @@ export const EventoDetalleScreen = () => {
         visible={modalMisionVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalMisionVisible(false)}
+        onRequestClose={() => {
+          Keyboard.dismiss();
+          setModalMisionVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          />
           <View style={[styles.modalContent, { maxHeight: '88%' }]}>
-            <View style={styles.modalHeaderQr}>
+            <Pressable
+              style={styles.modalHeaderQr}
+              onPress={Keyboard.dismiss}
+              accessible={false}
+            >
               <MaterialCommunityIcons name="target" size={24} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.modalTitulo}>ASIGNAR ORDEN DE MISIÓN</Text>
                 <Text style={styles.modalSubtitulo}>Directiva táctica de combate para facciones</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setModalMisionVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalMisionVisible(false);
+                }}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
                 <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
-            </View>
+            </Pressable>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={{ marginVertical: 8 }}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={{ marginVertical: 8, width: '100%' }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
+              <Pressable onPress={Keyboard.dismiss} accessible={false}>
               {/* 1. Nombre / Título de la Misión */}
               <Text style={styles.lblFormMision}>NOMBRE DE LA MISIÓN:</Text>
               <TextInput
@@ -4831,6 +4959,7 @@ export const EventoDetalleScreen = () => {
                 placeholderTextColor={colors.textMuted}
                 value={misionTitulo}
                 onChangeText={setMisionTitulo}
+                returnKeyType="done"
               />
 
               {/* 2. Facción Destinataria */}
@@ -4845,7 +4974,10 @@ export const EventoDetalleScreen = () => {
                         styles.chipBandoMision,
                         sel && { borderColor: b.colorHex || colors.primary, backgroundColor: 'rgba(255,255,255,0.08)' },
                       ]}
-                      onPress={() => setMisionBandoId(b.id)}
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setMisionBandoId(b.id);
+                      }}
                       activeOpacity={0.8}
                     >
                       <View style={[styles.colorDotMini, { backgroundColor: b.colorHex || colors.primary }]} />
@@ -4872,6 +5004,9 @@ export const EventoDetalleScreen = () => {
                 onChangeText={setMisionDescLider}
                 multiline
                 numberOfLines={3}
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                onSubmitEditing={Keyboard.dismiss}
               />
 
               {/* 4. Orden General para Operadores */}
@@ -4889,6 +5024,9 @@ export const EventoDetalleScreen = () => {
                 onChangeText={setMisionDescOperadores}
                 multiline
                 numberOfLines={3}
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
+                onSubmitEditing={Keyboard.dismiss}
               />
 
               {/* 5. Foto o Mapa Táctico Adjunto para el Líder */}
@@ -4941,12 +5079,16 @@ export const EventoDetalleScreen = () => {
                   </TouchableOpacity>
                 </View>
               )}
+              </Pressable>
             </ScrollView>
 
             <View style={styles.modalBotones}>
               <TouchableOpacity
                 style={styles.modalBotonCancelar}
-                onPress={() => setModalMisionVisible(false)}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setModalMisionVisible(false);
+                }}
               >
                 <Text style={styles.modalTextoCancelar}>CANCELAR</Text>
               </TouchableOpacity>
