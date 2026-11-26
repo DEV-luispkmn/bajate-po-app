@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@expo-google-fonts/chakra-petch": "^0.4.1",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-community/datetimepicker": "9.2.1",
     "@react-navigation/bottom-tabs": "^7.21.0",
@@ -11,6 +13,7 @@
     "expo": "~58.0.23",
     "expo-camera": "~58.0.14",
     "expo-constants": "~58.0.15",
+    "expo-font": "~58.0.11",
     "expo-image-picker": "~58.0.10",
     "expo-notifications": "^58.1.8",
     "expo-secure-store": "~58.0.2",

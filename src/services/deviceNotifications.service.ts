@@ -1,3 +1,4 @@
+import { colors } from '../theme/colors';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -40,7 +41,7 @@ export async function configurarNotificacionesTelefono(jugadorId?: number) {
           name: 'Alertas Tácticas Bájate Po!',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#E06D28',
+          lightColor: colors.primary,
           enableLights: true,
           enableVibrate: true,
         });

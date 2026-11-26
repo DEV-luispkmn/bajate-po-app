@@ -11,6 +11,7 @@
  * Fama negativa (< 0):
  * - Transición progresiva desde naranja oscuro hasta rojo infierno (#991B1B / #DC2626).
  */
+import { colors } from '../theme/colors';
 
 export interface EstiloFama {
   colorBorde: string;
@@ -25,8 +26,8 @@ export function obtenerEstiloFama(fama: number = 0): EstiloFama {
   // Estado Neutral / Balanceado (sin elogios ni reportes o cerca de cero)
   if (Math.abs(val) < 0.01) {
     return {
-      colorBorde: '#E06D28', // Naranja táctico estándar
-      colorTexto: '#FFFFFF', // Blanco estándar
+      colorBorde: colors.primary, // Naranja táctico estándar
+      colorTexto: colors.text, // Blanco estándar
       nivel: 'NEUTRAL',
       descripcion: 'Operador Balanceado',
     };
@@ -36,7 +37,7 @@ export function obtenerEstiloFama(fama: number = 0): EstiloFama {
   if (val > 0) {
     if (val >= 6.0) {
       return {
-        colorBorde: '#FFD700', // Dorado legendario
+        colorBorde: colors.trophyGold, // Dorado legendario
         colorTexto: '#FFE082', // Oro claro radiante
         nivel: 'LEGENDARIO',
         descripcion: 'Operador Legendario',
@@ -44,7 +45,7 @@ export function obtenerEstiloFama(fama: number = 0): EstiloFama {
     }
     if (val >= 3.0) {
       return {
-        colorBorde: '#F59E0B', // Ámbar dorado
+        colorBorde: colors.warning, // Ámbar dorado
         colorTexto: '#FCD34D', // Dorado cálido
         nivel: 'DISTINGUIDO',
         descripcion: 'Operador Distinguido',
@@ -52,7 +53,7 @@ export function obtenerEstiloFama(fama: number = 0): EstiloFama {
     }
     if (val >= 1.0) {
       return {
-        colorBorde: '#10B981', // Verde esmeralda intenso
+        colorBorde: colors.success, // Verde esmeralda intenso
         colorTexto: '#6EE7B7', // Verde menta
         nivel: 'CONFIABLE',
         descripcion: 'Operador Ejemplar',
@@ -70,8 +71,8 @@ export function obtenerEstiloFama(fama: number = 0): EstiloFama {
   // FAMA NEGATIVA (< 0): de naranja oscuro a rojo infierno
   if (val <= -6.0) {
     return {
-      colorBorde: '#7F1D1D', // Rojo infierno oscuro
-      colorTexto: '#EF4444', // Rojo infierno
+      colorBorde: colors.dangerDark, // Rojo infierno oscuro
+      colorTexto: colors.danger, // Rojo infierno
       nivel: 'INFAME',
       descripcion: 'Operador Infame',
     };
@@ -94,7 +95,7 @@ export function obtenerEstiloFama(fama: number = 0): EstiloFama {
   }
   // -1.0 < val < 0
   return {
-    colorBorde: '#D97706', // Naranja oscuro
+    colorBorde: colors.warning, // Naranja oscuro
     colorTexto: '#FDBA74', // Naranja tenue
     nivel: 'CUESTIONADO',
     descripcion: 'Operador Cuestionado',

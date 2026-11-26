@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RootStackParamList } from './types';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
 
 // Navegador de pestañas inferiores (Inicio, Mapa, Perfil)
 import { MainTabNavigator } from './MainTabNavigator';
@@ -40,12 +41,13 @@ export const RootNavigator = () => {
     <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         screenOptions={{
+          headerBackTitle: 'Volver',
           headerStyle: {
             backgroundColor: colors.card,
           },
           headerTintColor: colors.text,
           headerTitleStyle: {
-            fontWeight: '900',
+            fontFamily: fonts.displayBold,
           },
           contentStyle: {
             backgroundColor: colors.background,
@@ -58,7 +60,7 @@ export const RootNavigator = () => {
             <Stack.Screen
               name="MainTabs"
               component={MainTabNavigator}
-              options={{ headerShown: false }}
+              options={{ headerShown: false, title: 'Inicio' }}
             />
             <Stack.Screen
               name="CrearEvento"
