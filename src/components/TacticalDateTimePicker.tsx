@@ -154,7 +154,7 @@ export const TacticalDateTimePicker: React.FC<TacticalDateTimePickerProps> = ({
               <MaterialCommunityIcons
                 name="calendar"
                 size={15}
-                color={mode === 'date' ? '#fff' : colors.textSecondary}
+                color={mode === 'date' ? colors.onPrimary : colors.textSecondary}
                 style={{ marginRight: 5 }}
               />
               <Text style={[styles.iosTabTxt, mode === 'date' && styles.iosTabTxtActivo]}>
@@ -170,7 +170,7 @@ export const TacticalDateTimePicker: React.FC<TacticalDateTimePickerProps> = ({
               <MaterialCommunityIcons
                 name="clock-outline"
                 size={15}
-                color={mode === 'time' ? '#fff' : colors.textSecondary}
+                color={mode === 'time' ? colors.onPrimary : colors.textSecondary}
                 style={{ marginRight: 5 }}
               />
               <Text style={[styles.iosTabTxt, mode === 'time' && styles.iosTabTxtActivo]}>
@@ -210,7 +210,7 @@ export const TacticalDateTimePicker: React.FC<TacticalDateTimePickerProps> = ({
               <MaterialCommunityIcons
                 name="check"
                 size={15}
-                color="#fff"
+                color={colors.onPrimary}
                 style={{ marginRight: 5 }}
               />
               <Text style={styles.iosTxtConfirmar}>CONFIRMAR</Text>
@@ -284,7 +284,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   iosTabTxtActivo: {
-    color: '#fff',
+    color: colors.onPrimary,
+    fontWeight: '900',
   },
   iosSpinner: {
     height: 180,
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   iosTxtConfirmar: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.5,

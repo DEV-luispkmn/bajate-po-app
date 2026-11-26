@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
 import { buscarEventoPorCodigoApi } from '../api/eventos.service';
 
 export interface ModalCodigoTacticoProps {
@@ -144,7 +145,7 @@ export const ModalCodigoTactico: React.FC<ModalCodigoTacticoProps> = ({
               disabled={!codigo.trim() || buscando}
             >
               {buscando ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
                 <Text style={styles.txtConfirmarModal}>{tituloConfirmar}</Text>
               )}
@@ -159,7 +160,7 @@ export const ModalCodigoTactico: React.FC<ModalCodigoTacticoProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -180,9 +181,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalTitulo: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 1,
   },
   modalDescripcion: {
@@ -196,9 +197,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
     borderRadius: 8,
-    color: '#fff',
+    color: colors.text,
     fontSize: 24,
-    fontWeight: '900',
+    fontFamily: fonts.monoBold,
     letterSpacing: 6,
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
@@ -209,8 +210,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerBorder,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -252,9 +253,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   txtConfirmarModal: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1,
   },
 });

@@ -11,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
 import {
   Notificacion,
   listarNotificacionesApi,
@@ -193,6 +194,9 @@ export const ModalNotificaciones: React.FC<ModalNotificacionesProps> = ({
               <TouchableOpacity
                 style={styles.btnMarcarTodas}
                 onPress={handleMarcarTodasLeidas}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Marcar todas las notificaciones como leídas"
               >
                 <Text style={styles.txtMarcarTodas}>LEER TODAS</Text>
               </TouchableOpacity>
@@ -280,7 +284,7 @@ export const ModalNotificaciones: React.FC<ModalNotificacionesProps> = ({
 
                       {esRechazada && (
                         <View style={styles.accionInlineRow}>
-                          <View style={[styles.badgeAccionInline, { borderColor: colors.danger, backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                          <View style={[styles.badgeAccionInline, { borderColor: colors.danger, backgroundColor: colors.dangerSoft }]}>
                             <MaterialCommunityIcons
                               name={estaExpandida ? 'chevron-up' : 'alert-circle-outline'}
                               size={13}
@@ -315,7 +319,12 @@ export const ModalNotificaciones: React.FC<ModalNotificacionesProps> = ({
             </ScrollView>
           )}
 
-          <TouchableOpacity style={styles.btnCerrar} onPress={onClose}>
+          <TouchableOpacity
+            style={styles.btnCerrar}
+            onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar panel de notificaciones"
+          >
             <Text style={styles.txtBtnCerrar}>CERRAR</Text>
           </TouchableOpacity>
         </View>
@@ -327,7 +336,7 @@ export const ModalNotificaciones: React.FC<ModalNotificacionesProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -353,17 +362,17 @@ const styles = StyleSheet.create({
   modalTitulo: {
     color: colors.text,
     fontSize: 15,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
     marginLeft: 8,
   },
   btnMarcarTodas: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(224, 109, 40, 0.3)',
+    borderColor: colors.primaryBorder,
   },
   txtMarcarTodas: {
     color: colors.primary,
@@ -407,7 +416,7 @@ const styles = StyleSheet.create({
   },
   notifItemNoLeida: {
     backgroundColor: 'rgba(224, 109, 40, 0.06)',
-    borderColor: 'rgba(224, 109, 40, 0.3)',
+    borderColor: colors.primaryBorder,
   },
   iconoBox: {
     width: 34,
@@ -453,12 +462,12 @@ const styles = StyleSheet.create({
   badgeAccionInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(224, 109, 40, 0.1)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(224, 109, 40, 0.3)',
+    borderColor: colors.primaryBorder,
   },
   txtBadgeAccionInline: {
     color: colors.primary,
@@ -467,12 +476,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   motivoRechazoBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    backgroundColor: colors.dangerSoft,
     borderRadius: 6,
     padding: 10,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: colors.dangerBorder,
   },
   motivoRechazoHeader: {
     flexDirection: 'row',
@@ -493,14 +502,16 @@ const styles = StyleSheet.create({
   },
   notifFecha: {
     color: colors.textMuted,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
     marginTop: 6,
   },
   btnCerrar: {
     backgroundColor: colors.inputBg,
     borderRadius: 8,
-    paddingVertical: 10,
+    minHeight: 44,
+    paddingVertical: 11,
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
     borderWidth: 1,

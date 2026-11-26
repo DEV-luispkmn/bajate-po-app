@@ -19,8 +19,10 @@ import { useAuth } from '../../context/AuthContext';
 import { REGIONES_CHILE } from '../eventos/CrearEventoScreen';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import type { NavigationProp } from '../../navigation/types';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ROLES_DISPONIBLES = [
   { id: 'ASALTO', label: 'Asalto', icon: 'lightning-bolt' as const },
@@ -33,6 +35,7 @@ const ROLES_DISPONIBLES = [
 
 export const RegistroScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const insets = useSafeAreaInsets();
   const { registro } = useAuth();
   const scrollViewRef = useRef<any>(null);
 
@@ -230,6 +233,7 @@ export const RegistroScreen = () => {
           ref={scrollViewRef}
           contentContainerStyle={[
             styles.scrollContainer,
+            { paddingTop: Math.max(insets.top + 16, 44) },
             tecladoAbierto && styles.scrollContainerConTeclado,
           ]}
           keyboardShouldPersistTaps="handled"
@@ -306,6 +310,8 @@ export const RegistroScreen = () => {
                 onPress={() => setMostrarPassword((prev) => !prev)}
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 <MaterialCommunityIcons
                   name={mostrarPassword ? 'eye-outline' : 'eye-off-outline'}
@@ -320,7 +326,7 @@ export const RegistroScreen = () => {
                 <MaterialCommunityIcons
                   name="alert-circle-outline"
                   size={18}
-                  color="#EF4444"
+                  color={colors.danger}
                   style={styles.iconoError}
                 />
                 <Text style={styles.textoError}>{mensajeError}</Text>
@@ -330,7 +336,7 @@ export const RegistroScreen = () => {
             <TouchableOpacity style={styles.botonPrincipal} onPress={avanzarAlPaso2} activeOpacity={0.8}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.textoBoton}>CONTINUAR A FICHA TÁCTICA (PASO 2)</Text>
-                <MaterialCommunityIcons name="arrow-right" size={16} color="#fff" />
+                <MaterialCommunityIcons name="arrow-right" size={16} color={colors.onPrimary} />
               </View>
             </TouchableOpacity>
 
@@ -366,7 +372,7 @@ export const RegistroScreen = () => {
                     style={styles.btnElegirFoto}
                     onPress={handleElegirFotoGaleria}
                   >
-                    <MaterialCommunityIcons name="image" size={15} color="#fff" />
+                    <MaterialCommunityIcons name="image" size={15} color={colors.onPrimary} />
                     <Text style={styles.txtElegirFoto}>GALERÍA</Text>
                   </TouchableOpacity>
 
@@ -374,7 +380,7 @@ export const RegistroScreen = () => {
                     style={styles.btnTomarFoto}
                     onPress={handleTomarFotoCamara}
                   >
-                    <MaterialCommunityIcons name="camera" size={15} color="#fff" />
+                    <MaterialCommunityIcons name="camera" size={15} color={colors.text} />
                     <Text style={styles.txtTomarFoto}>CÁMARA</Text>
                   </TouchableOpacity>
                 </View>
@@ -432,7 +438,7 @@ export const RegistroScreen = () => {
                     <MaterialCommunityIcons
                       name={rol.icon}
                       size={18}
-                      color={activo ? '#fff' : colors.textMuted}
+                      color={activo ? colors.text : colors.textMuted}
                       style={{ marginRight: 6 }}
                     />
                     <Text style={[styles.rolLabel, activo && styles.rolLabelActivo]}>
@@ -442,7 +448,7 @@ export const RegistroScreen = () => {
                       <MaterialCommunityIcons
                         name="check"
                         size={14}
-                        color="#fff"
+                        color={colors.text}
                         style={{ marginLeft: 4 }}
                       />
                     )}
@@ -457,7 +463,7 @@ export const RegistroScreen = () => {
                 <MaterialCommunityIcons
                   name="alert-circle-outline"
                   size={18}
-                  color="#EF4444"
+                  color={colors.danger}
                   style={styles.iconoError}
                 />
                 <Text style={styles.textoError}>{mensajeError}</Text>
@@ -485,10 +491,10 @@ export const RegistroScreen = () => {
                 activeOpacity={0.8}
               >
                 {cargando ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <MaterialCommunityIcons name="account-plus" size={16} color="#fff" />
+                    <MaterialCommunityIcons name="account-plus" size={16} color={colors.onPrimary} />
                     <Text style={styles.textoBoton}>COMPLETAR REGISTRO</Text>
                   </View>
                 )}
@@ -602,7 +608,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
-    paddingTop: 50,
+    paddingTop: 24,
     paddingBottom: 40,
   },
   scrollContainerConTeclado: {
@@ -624,7 +630,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: 22,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 1,
     textAlign: 'center',
   },
@@ -670,7 +676,7 @@ const styles = StyleSheet.create({
   },
   pasoNumeroActivo: {
     backgroundColor: colors.primary,
-    color: '#fff',
+    color: colors.onPrimary,
     borderColor: colors.primary,
   },
   pasoTexto: {
@@ -775,7 +781,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   txtElegirFoto: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -791,7 +797,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   txtTomarFoto: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -903,7 +909,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   textoBoton: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -919,7 +925,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   modalContenido: {
@@ -951,7 +957,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.cardBorder,
   },
   modalRegionItemActivo: {
-    backgroundColor: 'rgba(224, 109, 40, 0.15)',
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
   },
   modalRegionTexto: {
@@ -984,7 +990,7 @@ const styles = StyleSheet.create({
   contenedorError: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.45)',
     borderRadius: 8,

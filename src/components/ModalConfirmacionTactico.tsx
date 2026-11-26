@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
 
 export type TipoConfirmacionTactico = 'peligro' | 'advertencia' | 'primario' | 'exito';
 
@@ -46,21 +47,21 @@ export const ModalConfirmacionTactico: React.FC<ModalConfirmacionTacticoProps> =
           color: colors.danger,
           iconoDefecto: 'alert-octagon-outline' as const,
           btnBg: colors.danger,
-          badgeBg: 'rgba(239, 68, 68, 0.15)',
+          badgeBg: colors.dangerSoft,
         };
       case 'advertencia':
         return {
           color: colors.warning,
           iconoDefecto: 'alert-outline' as const,
           btnBg: colors.warning,
-          badgeBg: 'rgba(245, 158, 11, 0.15)',
+          badgeBg: colors.warningSoft,
         };
       case 'exito':
         return {
           color: colors.success,
           iconoDefecto: 'check-decagram-outline' as const,
           btnBg: colors.success,
-          badgeBg: 'rgba(16, 185, 129, 0.15)',
+          badgeBg: colors.successSoft,
         };
       case 'primario':
       default:
@@ -68,7 +69,7 @@ export const ModalConfirmacionTactico: React.FC<ModalConfirmacionTacticoProps> =
           color: colors.primary,
           iconoDefecto: 'crosshairs' as const,
           btnBg: colors.primary,
-          badgeBg: 'rgba(224, 109, 40, 0.15)',
+          badgeBg: colors.primarySoft,
         };
     }
   };
@@ -133,7 +134,7 @@ export const ModalConfirmacionTactico: React.FC<ModalConfirmacionTacticoProps> =
               activeOpacity={0.85}
             >
               {cargando ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.text} size="small" />
               ) : (
                 <Text style={styles.txtConfirmar}>{textoConfirmar}</Text>
               )}
@@ -148,7 +149,7 @@ export const ModalConfirmacionTactico: React.FC<ModalConfirmacionTacticoProps> =
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -187,9 +188,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   titulo: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 16,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     letterSpacing: 0.5,
   },
   mensaje: {
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   txtConfirmar: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: 0.8,

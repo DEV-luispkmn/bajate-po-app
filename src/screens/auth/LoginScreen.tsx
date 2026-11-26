@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import type { NavigationProp } from '../../navigation/types';
 import { useNavigation } from '@react-navigation/native';
 
@@ -170,6 +171,8 @@ export const LoginScreen = () => {
                 onPress={() => setMostrarPassword((prev) => !prev)}
                 activeOpacity={0.7}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
                 <MaterialCommunityIcons
                   name={mostrarPassword ? 'eye-outline' : 'eye-off-outline'}
@@ -184,7 +187,7 @@ export const LoginScreen = () => {
                 <MaterialCommunityIcons
                   name="alert-circle-outline"
                   size={18}
-                  color="#EF4444"
+                  color={colors.danger}
                   style={styles.iconoError}
                 />
                 <Text style={styles.textoError}>{mensajeError}</Text>
@@ -202,7 +205,7 @@ export const LoginScreen = () => {
               activeOpacity={0.8}
             >
               {cargando ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : cooldownSegundos > 0 ? (
                 <View style={styles.filaBotonBloqueado}>
                   <MaterialCommunityIcons
@@ -264,7 +267,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 34,
-    fontWeight: '900',
+    fontFamily: fonts.displayBold,
     color: colors.text,
     letterSpacing: 1,
   },
@@ -333,9 +336,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   textoBoton: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1,
   },
   filaBotonBloqueado: {
@@ -360,12 +363,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   botonBloqueado: {
-    backgroundColor: '#374151',
+    backgroundColor: colors.disabled,
   },
   contenedorError: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.45)',
     borderRadius: 8,

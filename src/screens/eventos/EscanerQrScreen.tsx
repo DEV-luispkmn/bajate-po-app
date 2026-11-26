@@ -9,6 +9,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { unirseEventoApi, buscarEventoPorCodigoApi } from '../../api/eventos.service';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { ModalCodigoTactico } from '../../components/ModalCodigoTactico';
 import {
@@ -33,6 +34,7 @@ interface InfoDialogoQr {
 
 export const EscanerQrScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [escaneado, setEscaneado] = useState(false);
   const [procesando, setProcesando] = useState(false);
@@ -63,16 +65,29 @@ export const EscanerQrScreen = () => {
         <Text style={styles.subtituloPermiso}>
           Para unirte al combate en la cancha o escanear el QR del bando, necesitamos acceso a la cámara.
         </Text>
-        <TouchableOpacity style={styles.botonPermiso} onPress={requestPermission}>
+        <TouchableOpacity
+          style={styles.botonPermiso}
+          onPress={requestPermission}
+          accessibilityRole="button"
+          accessibilityLabel="Conceder acceso a la cámara"
+        >
           <Text style={styles.textoBotonPermiso}>CONCEDER ACCESO</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.botonManualAlt}
           onPress={() => setModalCodigoVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Ingresar código manualmente"
         >
           <Text style={styles.textoBotonManualAlt}>INGRESAR CÓDIGO MANUALMENTE</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.botonVolver} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.botonVolver}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Volver atrás"
+        >
           <Text style={styles.textoBotonVolver}>VOLVER</Text>
         </TouchableOpacity>
 
@@ -188,7 +203,15 @@ export const EscanerQrScreen = () => {
       />
 
       {/* Máscara táctica con visor central */}
-      <View style={styles.overlay}>
+      <View
+        style={[
+          styles.overlay,
+          {
+            paddingTop: Math.max(insets.top + 16, 24),
+            paddingBottom: Math.max(insets.bottom + 20, 28),
+          },
+        ]}
+      >
         <View style={styles.headerVisor}>
           <Text style={styles.tagMilitar}>RADAR TÁCTICO</Text>
           <Text style={styles.instruccion}>Apunta la mira al código QR de la partida o bando</Text>
@@ -212,14 +235,18 @@ export const EscanerQrScreen = () => {
           <TouchableOpacity
             style={styles.botonIngresoManual}
             onPress={() => setModalCodigoVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Ingresar código de partida de 6 dígitos"
           >
-            <MaterialCommunityIcons name="keyboard-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+            <MaterialCommunityIcons name="keyboard-outline" size={18} color={colors.onPrimary} style={{ marginRight: 6 }} />
             <Text style={styles.textoBotonIngresoManual}>INGRESAR CÓDIGO (6 DÍGITOS)</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.botonCancelar}
             onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar escaneo"
           >
             <Text style={styles.textoBotonCancelar}>CANCELAR ESCANEO</Text>
           </TouchableOpacity>
@@ -290,7 +317,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   textoBotonPermiso: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 1,
@@ -323,7 +350,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 50,
     paddingHorizontal: 24,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
@@ -338,7 +364,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   instruccion: {
-    color: '#fff',
+    color: colors.text,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -404,7 +430,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   textoBotonIngresoManual: {
-    color: '#fff',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1,
