@@ -8,7 +8,7 @@ export const NGROK_API_URL = 'https://scholar-poise-hardcopy.ngrok-free.dev';
 // ⚙️ SWITCH DE ENTORNO:
 // false = MODO LOCAL (desarrollo rápido en casa por Wi-Fi, cambios instantáneos con Fast Refresh)
 // true  = MODO NGROK (para probar fuera de casa con datos móviles)
-export const USAR_NGROK = false;
+export const USAR_NGROK = true;
 
 export function getApiUrl(): string {
   // 1. Si USAR_NGROK está activo, usamos el túnel público https
