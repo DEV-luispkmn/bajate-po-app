@@ -121,6 +121,12 @@ export async function asignarTLApi(nuevoTlId: number): Promise<Equipo> {
   });
 }
 
+export async function expulsarMiembroEquipoApi(jugadorId: number): Promise<Equipo> {
+  return apiFetch<Equipo>(`/equipos/mi-equipo/miembros/${jugadorId}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function modificarMiEquipoApi(dto: ModificarEquipoDto): Promise<Equipo> {
   return apiFetch<Equipo>('/equipos/mi-equipo', {
     method: 'PATCH',

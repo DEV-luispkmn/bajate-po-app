@@ -39,6 +39,7 @@ import {
   desintegrarEquipoApi,
   cambiarPostulacionesApi,
   asignarTLApi,
+  expulsarMiembroEquipoApi,
   modificarMiEquipoApi,
   PostulacionEquipo,
   postularEquipoApi,
@@ -111,6 +112,7 @@ export const EquiposScreen = () => {
   const [cambiandoPostulaciones, setCambiandoPostulaciones] = useState(false);
   const [modalDesintegrarVisible, setModalDesintegrarVisible] = useState(false);
   const [desintegrandoEquipo, setDesintegrandoEquipo] = useState(false);
+  const [expulsandoMiembroId, setExpulsandoMiembroId] = useState<number | null>(null);
 
   // Modal Modificar Información del Equipo (TL / Fundador)
   const [modalEditarEquipoVisible, setModalEditarEquipoVisible] = useState(false);
@@ -725,6 +727,44 @@ export const EquiposScreen = () => {
         tipo: 'advertencia',
         icono: 'crown-outline',
         textoConfirmar: 'SÍ, NOMBRAR COMO TL',
+      },
+    );
+  };
+
+  // Control TL / Fundador: Expulsar a un operador del equipo
+  const handleExpulsarMiembro = (miembro: MiembroEquipo) => {
+    if (!miEquipo) return;
+    mostrarConfirmacionTactico(
+      '¿EXPULSAR OPERADOR?',
+      `¿Estás seguro de que deseas expulsar a "${miembro.alias}" de "${miEquipo.nombre}"?\n\nDejará de pertenecer a las filas del equipo y pasará a operador libre (Lobo Solitario).`,
+      async () => {
+        try {
+          setModalTactico((prev) => ({ ...prev, visible: false }));
+          setExpulsandoMiembroId(miembro.id);
+          const actualizado = await expulsarMiembroEquipoApi(miembro.id);
+          setMiEquipo(actualizado);
+          mostrarAvisoTactico(
+            'OPERADOR EXPULSADO',
+            `${miembro.alias} fue removido de "${miEquipo.nombre}".`,
+            'advertencia',
+            'account-remove-outline',
+          );
+          cargarDatos();
+        } catch (error: any) {
+          mostrarAvisoTactico(
+            'ERROR',
+            error.message || 'No se pudo expulsar al operador.',
+            'peligro',
+            'alert-circle-outline',
+          );
+        } finally {
+          setExpulsandoMiembroId(null);
+        }
+      },
+      {
+        tipo: 'peligro',
+        icono: 'account-remove-outline',
+        textoConfirmar: 'SÍ, EXPULSAR',
       },
     );
   };
@@ -1543,19 +1583,40 @@ export const EquiposScreen = () => {
                         </Text>
                       </View>
 
-                      {/* Botón para que el TL / Fundador transfiera el mando de TL */}
-                      {tienePoderesGestion && !m.esTL && (
-                        <TouchableOpacity
-                          style={styles.btnDesignarTlMini}
-                          onPress={() => handleNombrarTl(m)}
-                          activeOpacity={0.8}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Nombrar Team Leader a ${m.alias}`}
-                        >
-                          <MaterialCommunityIcons name="star-outline" size={11} color={colors.warning} style={{ marginRight: 2 }} />
-                          <Text style={styles.txtDesignarTlMini}>NOMBRAR TL</Text>
-                        </TouchableOpacity>
+                      {/* Botones de gestión del TL / Fundador: transferir mando o expulsar operador */}
+                      {tienePoderesGestion && !m.esTL && m.id !== jugador?.id && (
+                        <View style={styles.operadorAccionesRow}>
+                          <TouchableOpacity
+                            style={styles.btnDesignarTlMini}
+                            onPress={() => handleNombrarTl(m)}
+                            activeOpacity={0.8}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 6 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Nombrar Team Leader a ${m.alias}`}
+                          >
+                            <MaterialCommunityIcons name="star-outline" size={11} color={colors.warning} style={{ marginRight: 2 }} />
+                            <Text style={styles.txtDesignarTlMini}>NOMBRAR TL</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={[
+                              styles.btnExpulsarMiembroMini,
+                              expulsandoMiembroId === m.id && styles.botonDeshabilitado,
+                            ]}
+                            onPress={() => handleExpulsarMiembro(m)}
+                            disabled={expulsandoMiembroId === m.id}
+                            activeOpacity={0.8}
+                            hitSlop={{ top: 8, bottom: 8, left: 6, right: 8 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Expulsar a ${m.alias} del equipo`}
+                          >
+                            {expulsandoMiembroId === m.id ? (
+                              <ActivityIndicator size="small" color={colors.danger} />
+                            ) : (
+                              <MaterialCommunityIcons name="account-remove-outline" size={15} color={colors.danger} />
+                            )}
+                          </TouchableOpacity>
+                        </View>
                       )}
                     </View>
                   ))}
@@ -3580,21 +3641,40 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 2,
   },
+  operadorAccionesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 8,
+  },
   btnDesignarTlMini: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.warningSoft,
     borderWidth: 1,
     borderColor: colors.warning,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 4,
-    marginLeft: 8,
+    minHeight: 30,
   },
   txtDesignarTlMini: {
     color: colors.warning,
     fontSize: 11,
     fontWeight: '900',
+  },
+  btnExpulsarMiembroMini: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    minHeight: 30,
+    minWidth: 32,
   },
   contenedorAccionSalida: {
     marginTop: 20,
