@@ -283,3 +283,233 @@ export function construirBriefingReglas(
 
   return lineas.join('\n');
 }
+
+export type IconoReglaPrincipal =
+  | 'speedometer'
+  | 'flash'
+  | 'heart-pulse'
+  | 'hand-wave-outline'
+  | 'ammunition'
+  | 'shield-check-outline';
+
+export type AcentoReglaPrincipal =
+  | 'primary'
+  | 'warning'
+  | 'danger'
+  | 'secondary'
+  | 'blueTeam';
+
+export type TipoItemSeguridad =
+  | 'obligatorio'
+  | 'prohibido'
+  | 'permitido'
+  | 'alerta'
+  | 'info';
+
+export interface ReglaPrincipalParseada {
+  clave: string;
+  valor: string;
+  labelCorto?: string;
+  encabezadoDetalle?: string;
+  subItems?: string[];
+  icono: IconoReglaPrincipal;
+  acento: AcentoReglaPrincipal;
+}
+
+export interface ItemSeguridadParseado {
+  texto: string;
+  tipo: TipoItemSeguridad;
+}
+
+export interface BriefingReglasParseado {
+  presetId?: PresetReglasPartida;
+  presetTitulo: string;
+  presetIcono: PresetReglaMeta['icono'];
+  reglasPrincipales: ReglaPrincipalParseada[];
+  seguridad: ItemSeguridadParseado[];
+  notasAdicionales?: string;
+}
+
+function buscarLabelCortoPorValor<T extends string>(
+  opciones: OpcionRegla<T>[],
+  valor: string,
+): string | undefined {
+  const valorNorm = valor.trim().toLowerCase();
+  return opciones.find((o) => o.detalle.trim().toLowerCase() === valorNorm)?.labelCorto;
+}
+
+function resolverMetaReglaPrincipal(clave: string, valor: string): ReglaPrincipalParseada {
+  const claveNorm = clave.toLowerCase();
+
+  if (claveNorm.includes('crono')) {
+    const labelCorto = buscarLabelCortoPorValor(OPCIONES_CRONO, valor);
+    const indiceGuion = valor.indexOf(' — ');
+    if (indiceGuion !== -1) {
+      const encabezadoDetalle = valor.slice(0, indiceGuion).trim();
+      const cuerpoSubItems = valor.slice(indiceGuion + 3).trim().replace(/\.$/, '');
+      const subItems = cuerpoSubItems
+        .split(' · ')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      return {
+        clave,
+        valor,
+        labelCorto,
+        encabezadoDetalle,
+        subItems: subItems.length > 0 ? subItems : undefined,
+        icono: 'speedometer',
+        acento: 'primary',
+      };
+    }
+    return {
+      clave,
+      valor,
+      labelCorto,
+      icono: 'speedometer',
+      acento: 'primary',
+    };
+  }
+
+  if (claveNorm.includes('disparo')) {
+    return {
+      clave,
+      valor,
+      labelCorto: buscarLabelCortoPorValor(OPCIONES_MODO_DISPARO, valor),
+      icono: 'flash',
+      acento: 'warning',
+    };
+  }
+
+  if (claveNorm.includes('bajas') || claveNorm.includes('respawn')) {
+    return {
+      clave,
+      valor,
+      labelCorto: buscarLabelCortoPorValor(OPCIONES_SISTEMA_BAJAS, valor),
+      icono: 'heart-pulse',
+      acento: 'danger',
+    };
+  }
+
+  if (claveNorm.includes('cortes')) {
+    return {
+      clave,
+      valor,
+      labelCorto: buscarLabelCortoPorValor(OPCIONES_CORTESIA, valor),
+      icono: 'hand-wave-outline',
+      acento: 'secondary',
+    };
+  }
+
+  if (claveNorm.includes('cargador')) {
+    return {
+      clave,
+      valor,
+      labelCorto: buscarLabelCortoPorValor(OPCIONES_CARGADORES, valor),
+      icono: 'ammunition',
+      acento: 'blueTeam',
+    };
+  }
+
+  return {
+    clave,
+    valor,
+    icono: 'shield-check-outline',
+    acento: 'primary',
+  };
+}
+
+function clasificarItemSeguridad(texto: string): TipoItemSeguridad {
+  const textoNorm = texto.toLowerCase();
+  if (textoNorm.includes('prohibido') || textoNorm.includes('no permitidas')) {
+    return 'prohibido';
+  }
+  if (textoNorm.includes('obligatoria') || textoNorm.includes('obligatorio')) {
+    return 'obligatorio';
+  }
+  if (textoNorm.includes('permitidas')) {
+    return 'permitido';
+  }
+  if (textoNorm.includes('fuego amigo cuenta')) {
+    return 'alerta';
+  }
+  return 'info';
+}
+
+export function parsearBriefingReglas(
+  descripcion?: string | null,
+): BriefingReglasParseado | null {
+  if (!descripcion) return null;
+
+  const lineas = descripcion.replace(/\r\n/g, '\n').split('\n');
+  const primerIndice = lineas.findIndex((l) => l.trim().length > 0);
+  if (primerIndice === -1) return null;
+
+  const matchHeader = lineas[primerIndice].trim().match(/^\[REGLAMENTO:\s*(.+?)\]$/i);
+  if (!matchHeader) return null;
+
+  const presetTitulo = matchHeader[1].trim();
+  const presetMeta = PRESETS_REGLAS_PARTIDA.find(
+    (p) => p.titulo.toLowerCase() === presetTitulo.toLowerCase(),
+  );
+
+  const reglasPrincipales: ReglaPrincipalParseada[] = [];
+  const seguridad: ItemSeguridadParseado[] = [];
+  const notasLineas: string[] = [];
+
+  let seccion: 'REGLAS' | 'SEGURIDAD' | 'NOTAS' = 'REGLAS';
+
+  for (let i = primerIndice + 1; i < lineas.length; i++) {
+    const linea = lineas[i];
+    const trimmed = linea.trim();
+
+    if (seccion !== 'NOTAS') {
+      if (/^Seguridad\s*&\s*Fair\s*Play\s*:?$/i.test(trimmed)) {
+        seccion = 'SEGURIDAD';
+        continue;
+      }
+      if (/^Notas\s+adicionales\s*:?$/i.test(trimmed)) {
+        seccion = 'NOTAS';
+        continue;
+      }
+    }
+
+    if (seccion === 'NOTAS') {
+      notasLineas.push(linea);
+      continue;
+    }
+
+    if (!trimmed) continue;
+
+    const sinBullet = trimmed.replace(/^[•\-*]\s*/, '').trim();
+    if (!sinBullet) continue;
+
+    if (seccion === 'REGLAS') {
+      const indiceDosPuntos = sinBullet.indexOf(':');
+      if (indiceDosPuntos === -1) continue;
+      const clave = sinBullet.slice(0, indiceDosPuntos).trim();
+      const valor = sinBullet.slice(indiceDosPuntos + 1).trim();
+      if (!clave || !valor) continue;
+      reglasPrincipales.push(resolverMetaReglaPrincipal(clave, valor));
+    } else if (seccion === 'SEGURIDAD') {
+      seguridad.push({
+        texto: sinBullet,
+        tipo: clasificarItemSeguridad(sinBullet),
+      });
+    }
+  }
+
+  const notasAdicionales = notasLineas.join('\n').trim() || undefined;
+
+  if (reglasPrincipales.length === 0 && seguridad.length === 0 && !notasAdicionales) {
+    return null;
+  }
+
+  return {
+    presetId: presetMeta?.id,
+    presetTitulo,
+    presetIcono: presetMeta?.icono || 'tune-variant',
+    reglasPrincipales,
+    seguridad,
+    notasAdicionales,
+  };
+}

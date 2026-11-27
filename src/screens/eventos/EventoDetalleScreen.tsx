@@ -91,6 +91,7 @@ import {
   ModalAsignarMision,
   ModalFotoMision,
 } from './components/ModalesTacticosYEmergencia';
+import { BriefingReglasCard } from './components/BriefingReglasCard';
 import type { NavigationProp } from '../../navigation/types';
 
 export const EventoDetalleScreen = () => {
@@ -270,6 +271,7 @@ export const EventoDetalleScreen = () => {
 
   const [cambiandoInscripciones, setCambiandoInscripciones] = useState(false);
   const [uniendoseAEscuadra, setUniendoseAEscuadra] = useState(false);
+  const [recordatoriosAbierto, setRecordatoriosAbierto] = useState(false);
   const [panelOrganizadorAbierto, setPanelOrganizadorAbierto] = useState(false);
   const [desplegableConfigVisible, setDesplegableConfigVisible] = useState(false);
   const [faccionesExpandidas, setFaccionesExpandidas] = useState<Record<number, boolean>>({});
@@ -557,6 +559,43 @@ export const EventoDetalleScreen = () => {
       cargarDatos();
     } catch (error: any) {
       mostrarAvisoTactico('ERROR', error.message || 'No se pudo completar la inscripción.', 'peligro', 'alert-circle-outline');
+    } finally {
+      setUniendose(false);
+    }
+  };
+
+  const handleUnirseVersusInmediato = async (bandoObjetivo?: Bando) => {
+    try {
+      setUniendose(true);
+      const rolDefault =
+        jugador?.roles
+          ?.split(',')
+          .map((r) => r.trim())
+          .filter(Boolean)[0] || 'ASALTO';
+
+      await unirseEventoApi({
+        eventoId,
+        codigoInvitacion: detalle?.evento.codigoInvitacion,
+        bandoId: bandoObjetivo?.id,
+        rol: rolDefault,
+      });
+
+      mostrarAvisoTactico(
+        '¡ALISTADO!',
+        bandoObjetivo
+          ? `Te has alistado de inmediato en ${bandoObjetivo.nombre}.`
+          : 'Te has alistado exitosamente en tu equipo.',
+        'exito',
+        'shield-check',
+      );
+      cargarDatos();
+    } catch (error: any) {
+      mostrarAvisoTactico(
+        'ERROR',
+        error.message || 'No se pudo completar el alistamiento.',
+        'peligro',
+        'alert-circle-outline',
+      );
     } finally {
       setUniendose(false);
     }
@@ -1363,6 +1402,25 @@ export const EventoDetalleScreen = () => {
   const esPichanga = evento.tipo === 'PICHANGA';
   const esVersus = evento.tipo === 'VERSUS';
   const esMasivo = evento.tipo === 'EVENTO_MASIVO';
+  const bandosEvento = evento.bandos || [];
+  const bandoVersusA = esVersus ? bandosEvento[0] : undefined;
+  const bandoVersusB = esVersus ? bandosEvento[1] : undefined;
+  const bandoVersusAId = bandoVersusA?.id;
+  const bandoVersusBId = bandoVersusB?.id;
+  const miEquipoId = jugador?.equipoId;
+  const soyDeEquipoA = Boolean(
+    esVersus && miEquipoId && evento.equipoAId && Number(miEquipoId) === Number(evento.equipoAId),
+  );
+  const soyDeEquipoB = Boolean(
+    esVersus && miEquipoId && evento.equipoBId && Number(miEquipoId) === Number(evento.equipoBId),
+  );
+  const miBandoVersusPropio = soyDeEquipoA ? bandoVersusA : soyDeEquipoB ? bandoVersusB : undefined;
+  const inscritosMiBandoVersus = miBandoVersusPropio
+    ? jugadores.filter((j) => j.bandoId === miBandoVersusPropio.id).length
+    : 0;
+  const miBandoVersusLleno = Boolean(
+    miBandoVersusPropio?.cupoMax && inscritosMiBandoVersus >= miBandoVersusPropio.cupoMax,
+  );
   const miBandoLiderado = evento.bandos?.find((b) => b.liderId === jugador?.id);
   const soyLiderDeBando = !!miBandoLiderado;
 
@@ -1590,6 +1648,45 @@ export const EventoDetalleScreen = () => {
             <Text style={styles.codigoValor}>{evento.codigoInvitacion || 'N/A'}</Text>
             <Text style={styles.codigoAyuda}>Código mnemotécnico de 6 caracteres para invitar camaradas.</Text>
           </View>
+        )}
+
+        {/* En VS: unirse inmediato arriba de Compartir Operación, asignando directo al bando del equipo */}
+        {esVersus && !esTerminadoOCancelado && !miBando && (
+          evento.inscripcionesAbiertas === false ? (
+            <View style={[styles.bannerInscripcionCerradaMini, { marginTop: 12 }]}>
+              <MaterialCommunityIcons name="lock" size={13} color={colors.textMuted} style={{ marginRight: 4 }} />
+              <Text style={styles.txtBannerInscripcionCerradaMini}>
+                Inscripciones cerradas para esta operación
+              </Text>
+            </View>
+          ) : miBandoVersusLleno ? (
+            <View style={[styles.bannerInscripcionCerradaMini, { marginTop: 12 }]}>
+              <MaterialCommunityIcons name="account-lock" size={13} color={colors.danger} style={{ marginRight: 4 }} />
+              <Text style={[styles.txtBannerInscripcionCerradaMini, { color: colors.danger }]}>
+                Tu escuadra completó su cupo máximo
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.btnUnirseVersusDirecto, uniendose && styles.botonDeshabilitado]}
+              disabled={uniendose}
+              onPress={() => handleUnirseVersusInmediato(miBandoVersusPropio)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={miBandoVersusPropio ? `Unirse a ${miBandoVersusPropio.nombre}` : 'Unirse a la operación'}
+            >
+              {uniendose ? (
+                <ActivityIndicator size="small" color={colors.onPrimary} />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="shield-plus" size={18} color={colors.onPrimary} style={{ marginRight: 6 }} />
+                  <Text style={styles.txtBtnUnirseVersusDirecto}>
+                    {miBandoVersusPropio ? `UNIRSE A ${miBandoVersusPropio.nombre.toUpperCase()}` : 'UNIRSE A LA OPERACIÓN'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )
         )}
 
         {/* Acciones de Operación: Compartir y QR Atrasados (Solo si está activa) */}
@@ -1965,75 +2062,118 @@ export const EventoDetalleScreen = () => {
         </View>
       )}
 
-      {/* RECORDATORIOS TÁCTICOS DE LA PARTIDA (Solo Pichangas / Versus; en Masivo/Milsim se gestionan al alistarse) */}
-      {evento.estado === 'PROGRAMADO' && !esMasivo && (
-        <View style={styles.cardRecordatorios}>
-          <View style={styles.recordatoriosHeader}>
-            <MaterialCommunityIcons name="bell-ring-outline" size={18} color={colors.primary} style={{ marginRight: 6 }} />
-            <Text style={styles.recordatoriosTitulo}>RECORDATORIOS DE LA OPERACIÓN</Text>
-          </View>
-          <Text style={styles.recordatoriosDesc}>
-            Activa alertas automáticas en tu teléfono para no perder el despliegue ni olvidar tus réplicas.
-          </Text>
+      {/* RECORDATORIOS TÁCTICOS DE LA PARTIDA (Solo Pichangas / Versus y operadores ya inscritos; en Masivo/Milsim se gestionan al alistarse) */}
+      {evento.estado === 'PROGRAMADO' && !esMasivo && !!miBando && (() => {
+        const cantidadRecordatoriosActivos =
+          (recordatorios.diaAntes ? 1 : 0) + (recordatorios.min30 ? 1 : 0);
+        const subtituloRecordatorios =
+          jugador?.recibeNotificaciones === false
+            ? 'Notificaciones desactivadas en Ajustes'
+            : cantidadRecordatoriosActivos === 2
+              ? '2 alertas activas (24h y 30m antes)'
+              : cantidadRecordatoriosActivos === 1
+                ? recordatorios.diaAntes
+                  ? '1 alerta activa (24h antes)'
+                  : '1 alerta activa (30 min antes)'
+                : 'Sin alertas programadas';
+        const colorSubtituloRecordatorios =
+          jugador?.recibeNotificaciones === false
+            ? colors.warning
+            : cantidadRecordatoriosActivos > 0
+              ? colors.success
+              : colors.textMuted;
 
-          {/* Opción 1: Día anterior (24 horas antes) */}
-          <View style={styles.filaSwitchRecordatorio}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={styles.txtTituloSwitchRecordatorio}>Día anterior (24 horas antes)</Text>
-              <Text style={styles.txtSubSwitchRecordatorio}>
-                {pasoDiaAntes
-                  ? 'Plazo expirado para esta partida'
-                  : 'Aviso táctico 24 hrs antes para alistar réplicas'}
-              </Text>
-            </View>
-            <Switch
-              value={recordatorios.diaAntes}
-              onValueChange={handleToggleDiaAntes}
-              disabled={pasoDiaAntes || cargandoRecordatorio}
-              trackColor={{ false: colors.inputBg, true: colors.primary }}
-              thumbColor={recordatorios.diaAntes ? colors.text : colors.textMuted}
-            />
-          </View>
+        return (
+          <View style={styles.cardRecordatorios}>
+            <TouchableOpacity
+              style={styles.recordatoriosHeaderTouch}
+              onPress={() => setRecordatoriosAbierto((prev) => !prev)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: recordatoriosAbierto }}
+              accessibilityLabel="Recordatorios de la operación"
+            >
+              <View style={styles.recordatoriosIconBox}>
+                <MaterialCommunityIcons name="bell-ring-outline" size={18} color={colors.primary} />
+              </View>
+              <View style={styles.recordatoriosHeaderTextCol}>
+                <Text style={styles.recordatoriosTitulo}>RECORDATORIOS DE LA OPERACIÓN</Text>
+                <Text
+                  style={[styles.recordatoriosSubtitulo, { color: colorSubtituloRecordatorios }]}
+                  numberOfLines={1}
+                >
+                  {subtituloRecordatorios}
+                </Text>
+              </View>
+              <MaterialCommunityIcons
+                name={recordatoriosAbierto ? 'chevron-up' : 'chevron-down'}
+                size={22}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
 
-          {/* Opción 2: 30 minutos antes */}
-          <View style={[styles.filaSwitchRecordatorio, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={styles.txtTituloSwitchRecordatorio}>30 minutos antes</Text>
-              <Text style={styles.txtSubSwitchRecordatorio}>
-                {paso30Min
-                  ? 'Faltan menos de 30 minutos'
-                  : 'Aviso media hora antes del inicio de partida'}
-              </Text>
-            </View>
-            <Switch
-              value={recordatorios.min30}
-              onValueChange={handleToggle30Min}
-              disabled={paso30Min || cargandoRecordatorio}
-              trackColor={{ false: colors.inputBg, true: colors.primary }}
-              thumbColor={recordatorios.min30 ? colors.text : colors.textMuted}
-            />
-          </View>
+            {recordatoriosAbierto && (
+              <View style={styles.recordatoriosContenidoDesplegable}>
+                <Text style={styles.recordatoriosDesc}>
+                  Activa alertas automáticas en tu teléfono para no perder el despliegue ni olvidar tus réplicas.
+                </Text>
 
-          {/* Advertencia si tiene todas las notificaciones apagadas en Ajustes */}
-          {jugador?.recibeNotificaciones === false && (
-            <View style={styles.avisoNotifDesactivadasGlobal}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={15} color={colors.warning} style={{ marginRight: 6 }} />
-              <Text style={styles.txtAvisoNotifDesactivadasGlobal}>
-                Tienes desactivadas las notificaciones en Ajustes. Actívalas para que tu teléfono pueda sonar.
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
+                {/* Opción 1: Día anterior (24 horas antes) */}
+                <View style={styles.filaSwitchRecordatorio}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={styles.txtTituloSwitchRecordatorio}>Día anterior (24 horas antes)</Text>
+                    <Text style={styles.txtSubSwitchRecordatorio}>
+                      {pasoDiaAntes
+                        ? 'Plazo expirado para esta partida'
+                        : 'Aviso táctico 24 hrs antes para alistar réplicas'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={recordatorios.diaAntes}
+                    onValueChange={handleToggleDiaAntes}
+                    disabled={pasoDiaAntes || cargandoRecordatorio}
+                    trackColor={{ false: colors.inputBg, true: colors.primary }}
+                    thumbColor={recordatorios.diaAntes ? colors.text : colors.textMuted}
+                  />
+                </View>
+
+                {/* Opción 2: 30 minutos antes */}
+                <View style={[styles.filaSwitchRecordatorio, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={styles.txtTituloSwitchRecordatorio}>30 minutos antes</Text>
+                    <Text style={styles.txtSubSwitchRecordatorio}>
+                      {paso30Min
+                        ? 'Faltan menos de 30 minutos'
+                        : 'Aviso media hora antes del inicio de partida'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={recordatorios.min30}
+                    onValueChange={handleToggle30Min}
+                    disabled={paso30Min || cargandoRecordatorio}
+                    trackColor={{ false: colors.inputBg, true: colors.primary }}
+                    thumbColor={recordatorios.min30 ? colors.text : colors.textMuted}
+                  />
+                </View>
+
+                {/* Advertencia si tiene todas las notificaciones apagadas en Ajustes */}
+                {jugador?.recibeNotificaciones === false && (
+                  <View style={styles.avisoNotifDesactivadasGlobal}>
+                    <MaterialCommunityIcons name="alert-circle-outline" size={15} color={colors.warning} style={{ marginRight: 6 }} />
+                    <Text style={styles.txtAvisoNotifDesactivadasGlobal}>
+                      Tienes desactivadas las notificaciones en Ajustes. Actívalas para que tu teléfono pueda sonar.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        );
+      })()}
 
       {/* Briefing de la Misión / Descripción */}
       {evento.descripcion ? (
-        <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>BRIEFING & REGLAS DE COMBATE</Text>
-          <View style={styles.briefingCard}>
-            <Text style={styles.briefingTexto}>{evento.descripcion}</Text>
-          </View>
-        </View>
+        <BriefingReglasCard descripcion={evento.descripcion} />
       ) : null}
 
       {/* PANEL EXCLUSIVO DEL ORGANIZADOR (DESPLEGABLE) */}
@@ -2703,16 +2843,6 @@ export const EventoDetalleScreen = () => {
           )}
 
           {(() => {
-            const bandosEvento = evento.bandos || [];
-            const bandoVersusAId = esVersus ? bandosEvento[0]?.id : undefined;
-            const bandoVersusBId = esVersus ? bandosEvento[1]?.id : undefined;
-            const miEquipoId = jugador?.equipoId;
-            const soyDeEquipoA = Boolean(
-              esVersus && miEquipoId && evento.equipoAId && Number(miEquipoId) === Number(evento.equipoAId),
-            );
-            const soyDeEquipoB = Boolean(
-              esVersus && miEquipoId && evento.equipoBId && Number(miEquipoId) === Number(evento.equipoBId),
-            );
             const bandosVisibles =
               esMasivo && !soyOrganizador && miBando?.bandoId
                 ? bandosEvento.filter((b) => b.id === miBando.bandoId)
@@ -2845,6 +2975,9 @@ export const EventoDetalleScreen = () => {
                         Ya estás asignado a tu bando en este Versus
                       </Text>
                     </View>
+                  ) : esVersus ? (
+                    // En partidas Versus la inscripción inmediata se realiza desde la tarjeta superior; no se muestra "ALISTARSE EN ESTE BANDO"
+                    null
                   ) : (
                     bandoLleno ? (
                       <View style={styles.bannerInscripcionCerradaMini}>
@@ -3571,6 +3704,23 @@ const styles = StyleSheet.create({
   codigoAyuda: {
     color: colors.textMuted,
     fontSize: 11,
+  },
+  btnUnirseVersusDirecto: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    minHeight: 46,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginTop: 12,
+  },
+  txtBtnUnirseVersusDirecto: {
+    color: colors.onPrimary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.6,
   },
   accionesOperacionRow: {
     flexDirection: 'row',
@@ -4482,16 +4632,38 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 16,
   },
-  recordatoriosHeader: {
+  recordatoriosHeaderTouch: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    minHeight: 44,
+  },
+  recordatoriosIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordatoriosHeaderTextCol: {
+    flex: 1,
+    marginHorizontal: 10,
   },
   recordatoriosTitulo: {
     color: colors.primary,
     fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    fontFamily: fonts.displayBold,
+    letterSpacing: 0.6,
+  },
+  recordatoriosSubtitulo: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  recordatoriosContenidoDesplegable: {
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceSubtle,
+    marginTop: 12,
+    paddingTop: 12,
   },
   recordatoriosDesc: {
     color: colors.textSecondary,
